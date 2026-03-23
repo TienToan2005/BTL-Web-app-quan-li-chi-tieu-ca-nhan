@@ -1,0 +1,11 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: mysql_chitieu
+    environment:
+      MYSQL_DATABASE: quanlychitieu
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./database/init:/docker-entrypoint-initdb.d
