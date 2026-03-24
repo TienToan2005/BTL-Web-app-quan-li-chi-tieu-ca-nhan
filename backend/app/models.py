@@ -1,5 +1,5 @@
 from sqlalchemy import Column, BigInteger, String, Numeric, DateTime, ForeignKey, Enum, Integer, Text
-from .database import Base
+from database import Base
 from datetime import datetime
 
 class User(Base):

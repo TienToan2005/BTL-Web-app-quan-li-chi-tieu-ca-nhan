@@ -1,6 +1,6 @@
-from app import create_app
+from database import create_app
 from app.models import db, User, Wallet, Category, Transaction
-from app.services.transaction_service import TransactionService
+from app.services import TransactionService
 from datetime import datetime
 from sqlalchemy import create_engine, text
 
