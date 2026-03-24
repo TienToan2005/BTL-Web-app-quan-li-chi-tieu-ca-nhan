@@ -1,0 +1,40 @@
+/* Màu nền tổng thể xám nhạt cho giống app */
+body.bg-light {
+    background-color: #f4f7f6 !important;
+}
+
+/* Màu xanh lá cây đặc trưng của Spendee */
+.text-spendee {
+    color: #1FC06A !important;
+}
+
+/* Bo góc các thẻ Card và thêm hiệu ứng di chuột */
+.custom-card {
+    border-radius: 12px;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s;
+}
+
+.custom-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.05) !important;
+}
+
+/* Chỉnh con trỏ chuột cho mấy cái nút bấm */
+.cursor-pointer {
+    cursor: pointer;
+}
+
+/* Tinh chỉnh Navbar một chút */
+.navbar-nav .nav-link {
+    font-size: 15px;
+}
+/* Custom form input cho đẹp */
+.form-control {
+    padding: 12px 15px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}
+.form-control:focus {
+    border-color: #1FC06A;
+    box-shadow: 0 0 0 0.25rem rgba(31, 192, 106, 0.25);
+}
