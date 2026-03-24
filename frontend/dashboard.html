@@ -3,10 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Quản lý chi tiêu</title>
+    <title>Dashboard - $pendee</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .text-spendee { color: #1FC06A; }
+        .bg-spendee { background-color: #1FC06A; }
+        .cursor-pointer { cursor: pointer; }
+        .custom-card { border-radius: 12px; transition: transform 0.2s; }
+        .custom-card:hover { transform: translateY(-5px); }
+    </style>
 </head>
 <body class="bg-light">
 
@@ -16,108 +25,109 @@
                 <i class="fa-solid fa-chart-pie text-spendee"></i> $pendee
             </a>
             
-            <div class="collapse navbar-collapse justify-content-center">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse justify-content-center" id="navbarNav">
                 <ul class="navbar-nav">
                     <li class="nav-item mx-3">
-                        <a class="nav-link active fw-bold text-spendee border-bottom border-success border-3 pb-3" href="#">Dashboard</a>
+                        <a class="nav-link active fw-bold text-spendee border-bottom border-success border-3 pb-2" href="dashboard.html">Dashboard</a>
                     </li>
                     <li class="nav-item mx-3">
-                        <a class="nav-link text-secondary" href="budgets.html">Budgets</a>
+                        <a class="nav-link text-secondary fw-medium" href="budgets.html">Budgets</a>
+                    </li>
+                    <li class="nav-item mx-3">
+                        <a class="nav-link text-secondary fw-medium" href="transactions.html">Transactions</a>
                     </li>
                 </ul>
             </div>
 
-            <div class="d-flex align-items-center">
-                <img id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=random" alt="Avatar" class="rounded-circle me-2" width="35">
-                <span id="userDisplay" class="text-secondary fw-medium">Loading...</span>
-                <i class="fa-solid fa-chevron-down ms-2 text-secondary fs-7"></i>
+            <div class="dropdown" id="auth-zone">
+                <div class="d-flex align-items-center cursor-pointer" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                    <img id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=random" alt="Avatar" class="rounded-circle me-2" width="35">
+                    <span id="userDisplay" class="text-secondary fw-bold">Loading...</span>
+                    <i class="fa-solid fa-chevron-down ms-2 text-secondary" style="font-size: 0.7rem;"></i>
+                </div>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                    <li><a class="dropdown-item py-2" href="#"><i class="fa-regular fa-user me-2"></i> Hồ sơ</a></li>
+                    <li><a class="dropdown-item py-2" href="#"><i class="fa-solid fa-gear me-2"></i> Cài đặt</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item py-2 text-danger fw-bold" href="#" onclick="Auth.logout()">
+                        <i class="fa-solid fa-arrow-right-from-bracket me-2"></i> Đăng xuất
+                    </a></li>
+                </ul>
             </div>
         </div>
     </nav>
 
-    <div class="container mt-5">
-        <h4 class="fw-bold text-dark mb-4">Overview</h4>
-        
-        <div class="d-flex justify-content-end mb-3">
-            <div class="bg-white px-3 py-2 rounded shadow-sm border text-secondary">
-                <i class="fa-solid fa-angle-left me-3 cursor-pointer"></i>
-                <span id="currentMonthYear">March 2026</span> <i class="fa-regular fa-calendar ms-2"></i>
-                <i class="fa-solid fa-angle-right ms-3 cursor-pointer"></i>
+    <div class="container mt-5 pb-5" id="main-content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="fw-bold text-dark m-0">Overview</h4>
+            
+            <div class="bg-white px-3 py-2 rounded shadow-sm border d-flex align-items-center text-secondary">
+                <i class="fa-solid fa-angle-left me-3 cursor-pointer" onclick="Dashboard.prevMonth()"></i>
+                <span id="currentMonthYear" class="fw-medium text-dark">March 2026</span>
+                <i class="fa-regular fa-calendar ms-2 me-3"></i>
+                <i class="fa-solid fa-angle-right cursor-pointer" onclick="Dashboard.nextMonth()"></i>
             </div>
         </div>
 
-        <div class="row g-3">
+        <div class="row g-4">
             <div class="col-md-3">
-                <div class="card border-0 shadow-sm custom-card">
-                    <div class="card-body">
-                        <p class="text-secondary mb-1 fw-medium">Total Balance</p>
-                        <h3 id="totalBalance" class="text-spendee fw-normal">0 đ</h3>
+                <div class="card border-0 shadow-sm custom-card h-100">
+                    <div class="card-body p-4">
+                        <p class="text-secondary mb-2 fw-medium">Total Balance</p>
+                        <h3 id="totalBalance" class="text-spendee fw-bold mb-0">0 đ</h3>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card border-0 shadow-sm custom-card">
-                    <div class="card-body">
-                        <p class="text-secondary mb-1 fw-medium">Period Change</p>
-                        <h3 id="periodChange" class="text-spendee fw-normal">0 đ</h3>
+                <div class="card border-0 shadow-sm custom-card h-100">
+                    <div class="card-body p-4">
+                        <p class="text-secondary mb-2 fw-medium">Period Change</p>
+                        <h3 id="periodChange" class="fw-bold mb-0">0 đ</h3>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card border-0 shadow-sm custom-card">
-                    <div class="card-body">
-                        <p class="text-secondary mb-1 fw-medium">Period Expenses</p>
-                        <h3 id="periodExpenses" class="text-danger fw-normal">0 đ</h3>
+                <div class="card border-0 shadow-sm custom-card h-100">
+                    <div class="card-body p-4">
+                        <p class="text-secondary mb-2 fw-medium">Period Expenses</p>
+                        <h3 id="periodExpenses" class="text-danger fw-bold mb-0">0 đ</h3>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card border-0 shadow-sm custom-card">
-                    <div class="card-body">
-                        <p class="text-secondary mb-1 fw-medium">Period Income</p>
-                        <h3 id="periodIncome" class="text-success fw-normal">0 đ</h3>
+                <div class="card border-0 shadow-sm custom-card h-100">
+                    <div class="card-body p-4">
+                        <p class="text-secondary mb-2 fw-medium">Period Income</p>
+                        <h3 id="periodIncome" class="text-success fw-bold mb-0">0 đ</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); border-radius: 15px;">
+                    <div class="card-body p-4 d-flex align-items-start">
+                        <div class="bg-spendee p-3 rounded-circle text-white me-4">
+                            <i class="fa-solid fa-robot fs-4"></i>
+                        </div>
+                        <div>
+                            <h5 class="fw-bold mb-2">Gemini AI Financial Advice</h5>
+                            <p id="aiAdviceText" class="text-secondary mb-0">Gemini đang phân tích chi tiêu của bạn, đợi xíu nhé...</p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="api.js"></script>
-    <script>
-        // Hàm định dạng tiền VNĐ cho đẹp
-        const formatMoney = (amount) => {
-            return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
-        };
-
-        async function initDashboard() {
-            const userId = 1; // Trong thực tế sẽ lấy từ JWT token payload
-            const month = 3;
-            const year = 2026;
-
-            try {
-                const wallets = await API.getWallets(userId);
-                if (wallets && wallets.length > 0) {
-                    document.getElementById('totalBalance').innerText = formatMoney(wallets[0].balance);
-                    // Cập nhật tên hiển thị (giả định)
-                    document.getElementById('userDisplay').innerText = "Toàn " + userId;
-                }
-
-                const report = await API.getMonthlyReport(userId, month, year);
-                if (report) {
-                    const income = report.total_income || 0;
-                    const expense = report.total_expense || 0;
-                    
-                    document.getElementById('periodIncome').innerText = formatMoney(income);
-                    document.getElementById('periodExpenses').innerText = formatMoney(expense);
-                    document.getElementById('periodChange').innerText = formatMoney(income - expense);
-                }
-
-            } catch (error) {
-                console.error("Dashboard Error:", error);
-            }
-        }
-
-        window.onload = initDashboard;
-    </script>
-</body>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script src="js/api.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script>     <script src="js/dashboard.js"></script> </body>
 </html>

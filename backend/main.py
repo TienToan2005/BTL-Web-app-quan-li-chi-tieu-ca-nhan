@@ -126,6 +126,33 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
     
     return {"access_token": at, "refresh_token": rt, "token_type": "bearer"}
 
+@app.post("/auth/register", tags=["Auth"])
+def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(models.User).filter(models.User.username == user.username).first()
+    if db_user:
+        raise BusinessException("Tên đăng nhập đã tồn tại!", status_code=400)
+    
+    db_email = db.query(models.User).filter(models.User.email == user.email).first()
+    if db_email:
+        raise BusinessException("Email này đã được sử dụng!", status_code=400)
+
+    hashed_password = pwd_context.hash(user.password)
+
+    new_user = models.User(
+        username=user.username,
+        email=user.email,
+        password_hash=hashed_password
+    )
+
+    try:
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        return {"status": "success", "message": "Đăng ký tài khoản thành công!"}
+    except Exception as e:
+        db.rollback()
+        raise BusinessException("Lỗi hệ thống khi tạo tài khoản", status_code=500)
+    
 # --- 2. WALLETS ---
 @app.post("/wallets/", response_model=schemas.WalletResponse, tags=["Wallets"])
 def create_wallet(wallet: schemas.WalletCreate, db: Session = Depends(get_db)):
@@ -154,6 +181,7 @@ def make_transaction(t: schemas.TransactionCreate, db: Session = Depends(get_db)
     return service.add_transaction(
         db, t.user_id, t.wallet_id, t.category_id, t.amount, t.note, t.transaction_date
     )
+
 @app.delete("/transactions/{tx_id}", tags=["Transactions"])
 def delete_transaction_api(
     tx_id: int, 
@@ -161,6 +189,7 @@ def delete_transaction_api(
     db: Session = Depends(get_db)
 ):
     return service.delete_transaction(db, tx_id, current_user_id)
+
 @app.get("/transactions/search", tags=["Transactions"])
 def search_transactions(
     user_id: int,
@@ -183,6 +212,7 @@ def search_transactions(
 @app.get("/reports/{user_id}", tags=["Reports"])
 def get_report(user_id: int, month: int, year: int, db: Session = Depends(get_db)):
     return service.get_monthly_report(db, user_id, month, year)
+
 @app.post("/upload-receipt/{tx_id}")
 async def upload_receipt(tx_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
     if not file.content_type.startswith("image/"):
@@ -201,6 +231,7 @@ async def upload_receipt(tx_id: int, file: UploadFile = File(...), db: Session =
         db.commit()
 
     return {"image_url": tx.image_url, "status": "success"}
+
 @app.get("/reports/ai-advice/{user_id}", tags=["Reports"])
 def get_smart_advice(user_id: int, month: int, year: int, db: Session = Depends(get_db)):
     report = service.get_monthly_report(db, user_id, month, year)

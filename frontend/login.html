@@ -17,8 +17,9 @@
         </div>
         
         <form id="loginForm">
+            <div id="login-error-msg" class="text-danger small fw-bold mb-3 text-center d-none"></div>
             <div class="mb-3">
-                <label class="form-label fw-medium text-dark">Username</label>
+                <label class="form-label fw-medium text-dark">Tên đăng nhập</label>
                 <input type="text" id="username" class="form-control" placeholder="Username" required>
             </div>
             <div class="mb-4">
@@ -32,44 +33,13 @@
             </button>
             
             <div class="text-center text-secondary">
-                Chưa có tài khoản? <a href="#" class="text-spendee text-decoration-none fw-bold">Đăng ký ngay</a>
+                Chưa có tài khoản? <a href="register.html" class="text-spendee text-decoration-none fw-bold">Đăng ký ngay</a>
             </div>
         </form>
     </div>
-
-    <script src="api.js"></script>
-
-    <script>
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const userVal = document.getElementById('username').value;
-            const passVal = document.getElementById('password').value;
-            const btn = document.getElementById('btnLogin');
-            const text = document.getElementById('loginText');
-            const spinner = document.getElementById('loginSpinner');
-
-            btn.disabled = true;
-            text.innerText = "Đang kiểm tra...";
-            spinner.classList.remove('d-none');
-
-            try {
-                const result = await API.login(userVal, passVal);
-
-                if (result.success) {
-                    window.location.href = 'dashboard.html';
-                } else {
-                    alert('Lỗi: ' + (result.message || 'Sai tài khoản hoặc mật khẩu'));
-                }
-            } catch (error) {
-                console.error(error);
-                alert('Không thể kết nối đến Server Backend!');
-            } finally {
-                btn.disabled = false;
-                text.innerText = "Đăng nhập";
-                spinner.classList.add('d-none');
-            }
-        });
-    </script>
+    <script src="js/api.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script> 
+    <script src="js/login.js"></script>
 </body>
 </html>
