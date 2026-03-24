@@ -28,8 +28,8 @@
             </div>
 
             <div class="d-flex align-items-center">
-                <img src="https://ui-avatars.com/api/?name=Quan+Truong&background=random" alt="Avatar" class="rounded-circle me-2" width="35">
-                <span class="text-secondary fw-medium">quantruong998@gmail.com</span>
+                <img id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=random" alt="Avatar" class="rounded-circle me-2" width="35">
+                <span id="userDisplay" class="text-secondary fw-medium">Loading...</span>
                 <i class="fa-solid fa-chevron-down ms-2 text-secondary fs-7"></i>
             </div>
         </div>
@@ -41,7 +41,7 @@
         <div class="d-flex justify-content-end mb-3">
             <div class="bg-white px-3 py-2 rounded shadow-sm border text-secondary">
                 <i class="fa-solid fa-angle-left me-3 cursor-pointer"></i>
-                Mar 01, 2026 – Mar 31, 2026 <i class="fa-regular fa-calendar ms-2"></i>
+                <span id="currentMonthYear">March 2026</span> <i class="fa-regular fa-calendar ms-2"></i>
                 <i class="fa-solid fa-angle-right ms-3 cursor-pointer"></i>
             </div>
         </div>
@@ -51,36 +51,73 @@
                 <div class="card border-0 shadow-sm custom-card">
                     <div class="card-body">
                         <p class="text-secondary mb-1 fw-medium">Total Balance</p>
-                        <h3 class="text-spendee fw-normal">0.00 USD</h3>
+                        <h3 id="totalBalance" class="text-spendee fw-normal">0 đ</h3>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="card border-0 shadow-sm custom-card">
                     <div class="card-body">
-                        <p class="text-secondary mb-1 fw-medium">Total Period Change</p>
-                        <h3 class="text-spendee fw-normal">0.00 USD</h3>
+                        <p class="text-secondary mb-1 fw-medium">Period Change</p>
+                        <h3 id="periodChange" class="text-spendee fw-normal">0 đ</h3>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="card border-0 shadow-sm custom-card">
                     <div class="card-body">
-                        <p class="text-secondary mb-1 fw-medium">Total Period Expenses</p>
-                        <h3 class="text-spendee fw-normal">0.00 USD</h3>
+                        <p class="text-secondary mb-1 fw-medium">Period Expenses</p>
+                        <h3 id="periodExpenses" class="text-danger fw-normal">0 đ</h3>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="card border-0 shadow-sm custom-card">
                     <div class="card-body">
-                        <p class="text-secondary mb-1 fw-medium">Total Period Income</p>
-                        <h3 class="text-spendee fw-normal">0.00 USD</h3>
+                        <p class="text-secondary mb-1 fw-medium">Period Income</p>
+                        <h3 id="periodIncome" class="text-success fw-normal">0 đ</h3>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <script src="api.js"></script>
+    <script>
+        // Hàm định dạng tiền VNĐ cho đẹp
+        const formatMoney = (amount) => {
+            return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+        };
+
+        async function initDashboard() {
+            const userId = 1; // Trong thực tế sẽ lấy từ JWT token payload
+            const month = 3;
+            const year = 2026;
+
+            try {
+                const wallets = await API.getWallets(userId);
+                if (wallets && wallets.length > 0) {
+                    document.getElementById('totalBalance').innerText = formatMoney(wallets[0].balance);
+                    // Cập nhật tên hiển thị (giả định)
+                    document.getElementById('userDisplay').innerText = "Toàn " + userId;
+                }
+
+                const report = await API.getMonthlyReport(userId, month, year);
+                if (report) {
+                    const income = report.total_income || 0;
+                    const expense = report.total_expense || 0;
+                    
+                    document.getElementById('periodIncome').innerText = formatMoney(income);
+                    document.getElementById('periodExpenses').innerText = formatMoney(expense);
+                    document.getElementById('periodChange').innerText = formatMoney(income - expense);
+                }
+
+            } catch (error) {
+                console.error("Dashboard Error:", error);
+            }
+        }
+
+        window.onload = initDashboard;
+    </script>
 </body>
 </html>

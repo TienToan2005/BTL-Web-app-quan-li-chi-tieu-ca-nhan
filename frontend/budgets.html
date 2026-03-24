@@ -26,9 +26,8 @@
                 </ul>
             </div>
             <div class="d-flex align-items-center">
-                <img src="https://ui-avatars.com/api/?name=Quan+Truong&background=random" alt="Avatar" class="rounded-circle me-2" width="35">
-                <span class="text-secondary fw-medium">quantruong998@gmail.com</span>
-                <i class="fa-solid fa-chevron-down ms-2 text-secondary fs-7"></i>
+                <img src="https://ui-avatars.com/api/?name=Toan&background=random" alt="Avatar" class="rounded-circle me-2" width="35">
+                <span id="userEmail" class="text-secondary fw-medium">Loading...</span>
             </div>
         </div>
     </nav>
@@ -41,53 +40,83 @@
             </button>
         </div>
 
-        <div class="card border-0 shadow-sm custom-card mb-3">
-            <div class="card-body p-4">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <div class="d-flex align-items-center">
-                        <div class="bg-warning text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;">
-                            <i class="fa-solid fa-utensils fs-5"></i>
-                        </div>
-                        <div>
-                            <h5 class="mb-0 fw-bold text-dark">Ăn uống</h5>
-                            <small class="text-secondary">Còn lại: 1.500.000 đ</small>
-                        </div>
-                    </div>
-                    <div class="text-end">
-                        <h5 class="mb-0 fw-bold text-dark">3.500.000 đ</h5>
-                        <small class="text-secondary">/ 5.000.000 đ</small>
-                    </div>
-                </div>
-                <div class="progress mt-3" style="height: 10px; border-radius: 10px;">
-                    <div class="progress-bar bg-warning" role="progressbar" style="width: 70%;" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-            </div>
+        <div id="budgetList">
+            <p class="text-center text-secondary">Đang tải dữ liệu ngân sách...</p>
         </div>
-
-        <div class="card border-0 shadow-sm custom-card mb-3">
-            <div class="card-body p-4">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <div class="d-flex align-items-center">
-                        <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;">
-                            <i class="fa-solid fa-car fs-5"></i>
-                        </div>
-                        <div>
-                            <h5 class="mb-0 fw-bold text-dark">Đi lại & Xăng xe</h5>
-                            <small class="text-danger">Đã vượt mức: 100.000 đ</small>
-                        </div>
-                    </div>
-                    <div class="text-end">
-                        <h5 class="mb-0 fw-bold text-danger">1.100.000 đ</h5>
-                        <small class="text-secondary">/ 1.000.000 đ</small>
-                    </div>
-                </div>
-                <div class="progress mt-3" style="height: 10px; border-radius: 10px;">
-                    <div class="progress-bar bg-danger" role="progressbar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-            </div>
-        </div>
-
     </div>
 
+    <script src="api.js"></script>
+    <script>
+        const formatMoney = (amount) => {
+            return new Intl.NumberFormat('vi-VN').format(amount) + " đ";
+        };
+
+        async function loadBudgets() {
+            const userId = 1;
+            const month = 3;
+            const year = 2026;
+            const budgetContainer = document.getElementById('budgetList');
+
+            try {
+                // Giả sử API getMonthlyReport trả về danh sách các hạng mục kèm budget
+                // Nếu Toàn chưa viết API lấy riêng Budget, ta dùng tạm report tháng
+                const report = await API.getMonthlyReport(userId, month, year);
+                
+                if (!report || !report.categories) {
+                    budgetContainer.innerHTML = `<p class="text-center text-secondary">Chưa có ngân sách nào được thiết lập.</p>`;
+                    return;
+                }
+
+                budgetContainer.innerHTML = ''; // Xóa thông báo loading
+
+                report.categories.forEach(cat => {
+                    // Giả định mỗi Category có trường limit (ngân sách)
+                    // Nếu chưa có trong DB, mình để mặc định 5.000.000 để Toàn thấy giao diện
+                    const limit = cat.limit || 5000000; 
+                    const spent = cat.total || 0;
+                    const percent = Math.min((spent / limit) * 100, 100);
+                    const isOver = spent > limit;
+                    
+                    const statusText = isOver 
+                        ? `<small class="text-danger">Đã vượt mức: ${formatMoney(spent - limit)}</small>`
+                        : `<small class="text-secondary">Còn lại: ${formatMoney(limit - spent)}</small>`;
+                    
+                    const progressBarClass = isOver ? 'bg-danger' : (percent > 80 ? 'bg-warning' : 'bg-success');
+
+                    const cardHtml = `
+                        <div class="card border-0 shadow-sm custom-card mb-3">
+                            <div class="card-body p-4">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;">
+                                            <i class="fa-solid fa-tag fs-5"></i>
+                                        </div>
+                                        <div>
+                                            <h5 class="mb-0 fw-bold text-dark">${cat.name}</h5>
+                                            ${statusText}
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        <h5 class="mb-0 fw-bold ${isOver ? 'text-danger' : 'text-dark'}">${formatMoney(spent)}</h5>
+                                        <small class="text-secondary">/ ${formatMoney(limit)}</small>
+                                    </div>
+                                </div>
+                                <div class="progress mt-3" style="height: 10px; border-radius: 10px;">
+                                    <div class="progress-bar ${progressBarClass}" role="progressbar" style="width: ${percent}%;" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    budgetContainer.innerHTML += cardHtml;
+                });
+
+            } catch (error) {
+                console.error("Budget Load Error:", error);
+                budgetContainer.innerHTML = `<p class="text-center text-danger">Lỗi kết nối Backend!</p>`;
+            }
+        }
+
+        window.onload = loadBudgets;
+    </script>
 </body>
 </html>

@@ -16,18 +16,19 @@
             <p class="text-secondary mt-2">Đăng nhập để bắt đầu quản lý</p>
         </div>
         
-        <form action="dashboard.html">
+        <form id="loginForm">
             <div class="mb-3">
-                <label class="form-label fw-medium text-dark">Email</label>
-                <input type="email" class="form-control" placeholder="quantruong998@gmail.com" required>
+                <label class="form-label fw-medium text-dark">Username</label>
+                <input type="text" id="username" class="form-control" placeholder="Username" required>
             </div>
             <div class="mb-4">
                 <label class="form-label fw-medium text-dark">Mật khẩu</label>
-                <input type="password" class="form-control" placeholder="••••••••" required>
+                <input type="password" id="password" class="form-control" placeholder="••••••••" required>
             </div>
             
-            <button type="submit" class="btn w-100 text-white fw-bold py-2 mb-3" style="background-color: #1FC06A;">
-                Đăng nhập
+            <button type="submit" id="btnLogin" class="btn w-100 text-white fw-bold py-2 mb-3" style="background-color: #1FC06A;">
+                <span id="loginText">Đăng nhập</span>
+                <span id="loginSpinner" class="spinner-border spinner-border-sm d-none"></span>
             </button>
             
             <div class="text-center text-secondary">
@@ -36,5 +37,39 @@
         </form>
     </div>
 
+    <script src="api.js"></script>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const userVal = document.getElementById('username').value;
+            const passVal = document.getElementById('password').value;
+            const btn = document.getElementById('btnLogin');
+            const text = document.getElementById('loginText');
+            const spinner = document.getElementById('loginSpinner');
+
+            btn.disabled = true;
+            text.innerText = "Đang kiểm tra...";
+            spinner.classList.remove('d-none');
+
+            try {
+                const result = await API.login(userVal, passVal);
+
+                if (result.success) {
+                    window.location.href = 'dashboard.html';
+                } else {
+                    alert('Lỗi: ' + (result.message || 'Sai tài khoản hoặc mật khẩu'));
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Không thể kết nối đến Server Backend!');
+            } finally {
+                btn.disabled = false;
+                text.innerText = "Đăng nhập";
+                spinner.classList.add('d-none');
+            }
+        });
+    </script>
 </body>
 </html>

@@ -9,10 +9,20 @@ from typing import List
 from database import get_db, engine
 from app import models, schemas
 from app.services import TransactionService
+from fastapi.middleware.cors import CORSMiddleware
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Hệ thống Quản lý Chi tiêu Cá nhân")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Trong thực tế nên để địa chỉ cụ thể của Frontend
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 service = TransactionService()
 
 SECRET_KEY = "ZqjjjFPSdBth4EK7SRb8OR85Qu6RbgzJtzb2ICvo1uoFrsDGzbpj96cJiqCQG74Ei6M8t7OljH30ClKHhFaRAffydqF4saZ3BlV0kxnKWHpH7CdzP4FFbg8vAzwPfQ2Z2AtMoVBfXWJQHlGd1McjxW2TbrGUU7xI0kfzBhIiSw7ch6LVksTd0ASmQHw7lL3WgPZbr1cIqfsQOJU3jG7nQQEdh42XBQERiF1RQTqeguI4F9wl58ZbeOuryIl51T4Z" 
