@@ -17,6 +17,11 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
+class Token(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str
+    
 class UserResponse(UserBase):
     id: int
     created_at: datetime
@@ -46,9 +51,9 @@ class CategoryCreate(CategoryBase):
 
 class CategoryResponse(CategoryBase):
     id: int 
-
     class Config:
         from_attributes = True
+
 class TransactionCreate(BaseModel):
     user_id: int
     wallet_id: int
