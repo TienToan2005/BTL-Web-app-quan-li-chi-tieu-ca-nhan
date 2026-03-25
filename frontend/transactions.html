@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giao dịch - $pendee</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-expand-lg bg-white shadow-sm py-3">
+        <div class="container">
+            <a class="navbar-brand fw-bold fs-4 text-dark" href="dashboard.html">
+                <i class="fa-solid fa-chart-pie text-spendee"></i> $pendee
+            </a>
+            <div class="collapse navbar-collapse justify-content-center">
+                <ul class="navbar-nav">
+                    <li class="nav-item mx-3"><a class="nav-link text-secondary" href="dashboard.html">Dashboard</a></li>
+                    <li class="nav-item mx-3"><a class="nav-link text-secondary" href="budgets.html">Budgets</a></li>
+                    <li class="nav-item mx-3"><a class="nav-link active fw-bold text-spendee border-bottom border-success border-3 pb-2" href="#">Transactions</a></li>
+                </ul>
+            </div>
+            <div class="dropdown" id="user-profile-nav">
+                <div class="d-flex align-items-center cursor-pointer" id="userMenu" data-bs-toggle="dropdown">
+                    <img id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=random" class="rounded-circle me-2" width="35">
+                    <span id="userDisplay" class="text-secondary fw-bold">Loading...</span>
+                    <i class="fa-solid fa-chevron-down ms-2 text-secondary" style="font-size: 0.7rem;"></i>
+                </div> 
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                    <li>
+                        <a class="dropdown-item py-2 fw-medium" href="settings.html">
+                            <i class="fa-solid fa-gear me-2 text-secondary"></i> Cài đặt ví & danh mục
+                        </a>
+                    </li>
+                        
+                    <li><hr class="dropdown-divider"></li>
+
+                    <li>
+                        <a class="dropdown-item py-2 text-danger fw-bold" href="#" onclick="Auth.logout()">
+                            <i class="fa-solid fa-right-from-bracket me-2"></i> Đăng xuất
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5" style="max-width: 1000px;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="fw-bold text-dark m-0">Lịch sử giao dịch</h4>
+            <button class="btn btn-success fw-bold px-4 shadow-sm" style="background-color: #1FC06A; border: none;" onclick="TransactionManager.openAddModal()">
+                <i class="fa-solid fa-plus me-2"></i>Thêm giao dịch
+            </button>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4 p-3" style="border-radius: 12px;">
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <input type="text" id="searchNote" class="form-control" placeholder="Tìm kiếm ghi chú...">
+                </div>
+                <div class="col-md-3">
+                    <select id="filterWallet" class="form-select"><option value="">Tất cả ví</option></select>
+                </div>
+                <div class="col-md-3">
+                    <select id="filterCategory" class="form-select"><option value="">Tất cả danh mục</option></select>
+                </div>
+                <div class="col-md-2 text-end">
+                    <button class="btn btn-light w-100 border fw-medium" onclick="TransactionManager.loadTransactions()">Lọc</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm" style="border-radius: 15px;">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="ps-4 py-3 text-secondary small fw-bold">NGÀY</th>
+                            <th class="py-3 text-secondary small fw-bold">DANH MỤC</th>
+                            <th class="py-3 text-secondary small fw-bold">GHI CHÚ</th>
+                            <th class="py-3 text-secondary small fw-bold text-end pe-4">SỐ TIỀN</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transaction-list">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="addTransactionModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="fw-bold m-0">Ghi chép chi tiêu</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="addTransactionForm">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">SỐ TIỀN</label>
+                            <input type="number" id="tAmount" class="form-control form-control-lg fw-bold text-success" placeholder="0" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-bold">CHỌN VÍ</label>
+                                <select id="tWallet" class="form-select" required></select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-bold">DANH MỤC</label>
+                                <select id="tCategory" class="form-select" required></select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">GHI CHÚ</label>
+                            <textarea id="tNote" class="form-control" rows="2" placeholder="Hôm nay Toàn mua gì?"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100 fw-bold py-3 mt-2" style="background-color: #1FC06A; border: none;">LƯU GIAO DỊCH</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/transactions.js"></script>
+</body>
+</html>

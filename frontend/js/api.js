@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:8000';
+const BASE_URL = 'http://127.0.0.1:8000';
 
 const API = {
     async fetchWithAuth(endpoint, options = {}) {
@@ -34,12 +34,11 @@ const API = {
 
         const data = await response.json();
         if (!response.ok) {
-            throw new Error(data.message || "Đã có lỗi xảy ra");
+            throw new Error(data.message || data.detail || "Đã có lỗi xảy ra");
         }
         return data;
     },
 
-    // 2. AUTHENTICATION
     async login(username, password) {
         try {
             const response = await fetch(`${BASE_URL}/auth/login`, {
@@ -52,22 +51,33 @@ const API = {
                 localStorage.setItem('access_token', data.access_token);
                 localStorage.setItem('refresh_token', data.refresh_token);
                 localStorage.setItem('username', username);
+                
+                const uid = data.user_id || data.id; 
+                if (uid) {
+                    localStorage.setItem('user_id', uid);
+                    console.log("Đã lưu user_id:", uid);
+                } else {
+                    console.error("Backend không trả về ID người dùng!");
+                }
+
                 return { success: true };
             }
             return { success: false, message: data.message || data.detail };
         } catch (e) {
-            return { success: false, message: "Không thể kết nối Server" };
+            return { success: false, message: "Không thể kết nối Server. Toàn nhớ bật Backend nhé!" };
         }
     },
 
     async refreshToken(rt) {
-        const response = await fetch(`${BASE_URL}/auth/refresh?refresh_token=${rt}`, { method: 'POST' });
-        const data = await response.json();
-        if (response.ok) {
-            localStorage.setItem('access_token', data.access_token);
-            localStorage.setItem('refresh_token', data.refresh_token);
-            return { success: true, access_token: data.access_token };
-        }
+        try {
+            const response = await fetch(`${BASE_URL}/auth/refresh?refresh_token=${rt}`, { method: 'POST' });
+            const data = await response.json();
+            if (response.ok) {
+                localStorage.setItem('access_token', data.access_token);
+                localStorage.setItem('refresh_token', data.refresh_token);
+                return { success: true, access_token: data.access_token };
+            }
+        } catch (e) { console.error("Refresh token failed", e); }
         return { success: false };
     },
 
@@ -76,9 +86,33 @@ const API = {
         window.location.href = 'login.html';
     },
 
-    // 3. TRANSACTIONS & SEARCH
-    async getTransactions(userId, params = {}) {
-        const query = new URLSearchParams({ user_id: userId, ...params }).toString();
+    async getWallets(userId) {
+        return this.fetchWithAuth(`/wallets/user/${userId}`);
+    },
+
+    async createWallet(data) {
+        return this.fetchWithAuth('/wallets/', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    },
+    async createCategory(data) {
+            return this.fetchWithAuth('/categories/', {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+        },
+    async deleteCategory(catId, userId) {
+        return this.fetchWithAuth(`/categories/${catId}?user_id=${userId}`, {
+            method: 'DELETE'
+        });
+    },
+    async getCategories(userId) {
+        return this.fetchWithAuth(`/categories/user/${userId}`);
+    },
+
+    async searchTransactions(params) {
+        const query = new URLSearchParams(params).toString();
         return this.fetchWithAuth(`/transactions/search?${query}`);
     },
 
@@ -95,7 +129,29 @@ const API = {
         });
     },
 
-    // 4. UPLOAD
+    async getBudgets(userId, month, year) {
+        if (!userId) {
+            console.error("Lỗi: userId bị trống!");
+            return [];
+        }
+        return this.fetchWithAuth(`/budgets/user/${userId}?month=${month}&year=${year}`);
+    },
+
+    async createBudget(data) {
+        return this.fetchWithAuth('/budgets/', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    },
+
+    async getMonthlyReport(userId, month, year) {
+        return this.fetchWithAuth(`/reports/${userId}?month=${month}&year=${year}`);
+    },
+
+    async getAIAdvice(userId, month, year) {
+        return this.fetchWithAuth(`/reports/ai-advice/${userId}?month=${month}&year=${year}`);
+    },
+
     async uploadReceipt(txId, file) {
         const formData = new FormData();
         formData.append('file', file);
@@ -107,14 +163,5 @@ const API = {
             body: formData
         });
         return response.json();
-    },
-
-    // 5. REPORTS & AI
-    async getMonthlyReport(userId, month, year) {
-        return this.fetchWithAuth(`/reports/${userId}?month=${month}&year=${year}`);
-    },
-
-    async getAIAdvice(userId, month, year) {
-        return this.fetchWithAuth(`/reports/ai-advice/${userId}?month=${month}&year=${year}`);
     }
 };

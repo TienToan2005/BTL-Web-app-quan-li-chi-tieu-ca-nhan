@@ -5,8 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ngân sách - $pendee</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .text-spendee { color: #1FC06A; }
+        .btn-spendee { background-color: #1FC06A; border: none; }
+        .btn-spendee:hover { background-color: #19a359; }
+        .custom-card { border-radius: 15px; transition: transform 0.2s; }
+        .custom-card:hover { transform: translateY(-5px); }
+    </style>
 </head>
 <body class="bg-light">
 
@@ -18,105 +27,91 @@
             <div class="collapse navbar-collapse justify-content-center">
                 <ul class="navbar-nav">
                     <li class="nav-item mx-3">
-                        <a class="nav-link text-secondary" href="dashboard.html">Dashboard</a>
+                        <a class="nav-link text-secondary fw-medium" href="dashboard.html">Dashboard</a>
                     </li>
                     <li class="nav-item mx-3">
-                        <a class="nav-link active fw-bold text-spendee border-bottom border-success border-3 pb-3" href="#">Budgets</a>
+                        <a class="nav-link active fw-bold text-spendee border-bottom border-success border-3 pb-2" href="#">Budgets</a>
+                    </li>
+                    <li class="nav-item mx-3">
+                        <a class="nav-link text-secondary fw-medium" href="transactions.html">Transactions</a>
                     </li>
                 </ul>
             </div>
-            <div class="d-flex align-items-center">
-                <img src="https://ui-avatars.com/api/?name=Toan&background=random" alt="Avatar" class="rounded-circle me-2" width="35">
-                <span id="userEmail" class="text-secondary fw-medium">Loading...</span>
+            
+            <div class="dropdown" id="user-profile-nav">
+                <div class="d-flex align-items-center cursor-pointer" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false" style="cursor: pointer;">
+                    <img id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=random" alt="Avatar" class="rounded-circle me-2" width="35">
+                    <span id="userDisplay" class="text-secondary fw-bold">Loading...</span>
+                    <i class="fa-solid fa-chevron-down ms-2 text-secondary" style="font-size: 0.7rem;"></i>
+                </div>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                    <li>
+                        <a class="dropdown-item py-2 fw-medium" href="settings.html">
+                            <i class="fa-solid fa-gear me-2 text-secondary"></i> Cài đặt ví & danh mục
+                        </a>
+                    </li>
+                     
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item py-2 text-danger fw-bold" href="#" onclick="Auth.logout()">
+                            <i class="fa-solid fa-right-from-bracket me-2"></i> Đăng xuất
+                        </a>
+                    </li>
+                </ul>
             </div>
         </div>
     </nav>
 
-    <div class="container mt-5" style="max-width: 800px;">
+    <div class="container mt-5" style="max-width: 900px;">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="fw-bold text-dark">Ngân sách tháng 3/2026</h4>
-            <button class="btn text-white fw-bold shadow-sm" style="background-color: #1FC06A;">
+            <div>
+                <h4 class="fw-bold text-dark mb-1">Ngân sách chi tiêu</h4>
+                <p class="text-secondary mb-0" id="currentMonthYear">Tháng 3, 2026</p>
+            </div>
+            <button class="btn btn-spendee text-white fw-bold shadow-sm px-4 py-2" onclick="BudgetManager.openAddModal()">
                 <i class="fa-solid fa-plus me-1"></i> Add New Budget
             </button>
         </div>
 
-        <div id="budgetList">
-            <p class="text-center text-secondary">Đang tải dữ liệu ngân sách...</p>
+        <div id="budget-list" class="row">
+            <div class="col-12 text-center py-5">
+                <div class="spinner-border text-success" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-secondary">Đang tính toán ngân sách...</p>
+            </div>
         </div>
     </div>
 
-    <script src="api.js"></script>
-    <script>
-        const formatMoney = (amount) => {
-            return new Intl.NumberFormat('vi-VN').format(amount) + " đ";
-        };
-
-        async function loadBudgets() {
-            const userId = 1;
-            const month = 3;
-            const year = 2026;
-            const budgetContainer = document.getElementById('budgetList');
-
-            try {
-                // Giả sử API getMonthlyReport trả về danh sách các hạng mục kèm budget
-                // Nếu Toàn chưa viết API lấy riêng Budget, ta dùng tạm report tháng
-                const report = await API.getMonthlyReport(userId, month, year);
-                
-                if (!report || !report.categories) {
-                    budgetContainer.innerHTML = `<p class="text-center text-secondary">Chưa có ngân sách nào được thiết lập.</p>`;
-                    return;
-                }
-
-                budgetContainer.innerHTML = ''; // Xóa thông báo loading
-
-                report.categories.forEach(cat => {
-                    // Giả định mỗi Category có trường limit (ngân sách)
-                    // Nếu chưa có trong DB, mình để mặc định 5.000.000 để Toàn thấy giao diện
-                    const limit = cat.limit || 5000000; 
-                    const spent = cat.total || 0;
-                    const percent = Math.min((spent / limit) * 100, 100);
-                    const isOver = spent > limit;
-                    
-                    const statusText = isOver 
-                        ? `<small class="text-danger">Đã vượt mức: ${formatMoney(spent - limit)}</small>`
-                        : `<small class="text-secondary">Còn lại: ${formatMoney(limit - spent)}</small>`;
-                    
-                    const progressBarClass = isOver ? 'bg-danger' : (percent > 80 ? 'bg-warning' : 'bg-success');
-
-                    const cardHtml = `
-                        <div class="card border-0 shadow-sm custom-card mb-3">
-                            <div class="card-body p-4">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <div class="d-flex align-items-center">
-                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;">
-                                            <i class="fa-solid fa-tag fs-5"></i>
-                                        </div>
-                                        <div>
-                                            <h5 class="mb-0 fw-bold text-dark">${cat.name}</h5>
-                                            ${statusText}
-                                        </div>
-                                    </div>
-                                    <div class="text-end">
-                                        <h5 class="mb-0 fw-bold ${isOver ? 'text-danger' : 'text-dark'}">${formatMoney(spent)}</h5>
-                                        <small class="text-secondary">/ ${formatMoney(limit)}</small>
-                                    </div>
-                                </div>
-                                <div class="progress mt-3" style="height: 10px; border-radius: 10px;">
-                                    <div class="progress-bar ${progressBarClass}" role="progressbar" style="width: ${percent}%;" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"></div>
-                                </div>
-                            </div>
+    <div class="modal fade" id="addBudgetModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="fw-bold m-0">Thiết lập ngân sách</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="addBudgetForm">
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-secondary">HẠN MỨC CHI TIÊU (VNĐ)</label>
+                            <input type="number" id="budgetAmount" class="form-control form-control-lg border-2" placeholder="0" required>
                         </div>
-                    `;
-                    budgetContainer.innerHTML += cardHtml;
-                });
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-secondary">CHỌN DANH MỤC</label>
+                            <select id="budgetCategory" class="form-select form-select-lg border-2">
+                                </select>
+                        </div>
+                        <button type="submit" class="btn btn-spendee text-white w-100 fw-bold py-3">LƯU NGÂN SÁCH</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            } catch (error) {
-                console.error("Budget Load Error:", error);
-                budgetContainer.innerHTML = `<p class="text-center text-danger">Lỗi kết nối Backend!</p>`;
-            }
-        }
-
-        window.onload = loadBudgets;
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/budgets.js"></script>
 </body>
 </html>

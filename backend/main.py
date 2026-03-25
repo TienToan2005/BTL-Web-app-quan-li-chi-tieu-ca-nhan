@@ -11,6 +11,7 @@ from jose import jwt, JWTError
 from passlib.context import CryptContext
 from typing import List, Optional
 from fastapi import Query
+from sqlalchemy import func, extract
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -124,7 +125,13 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
     db_user.refresh_token = rt
     db.commit()
     
-    return {"access_token": at, "refresh_token": rt, "token_type": "bearer"}
+    return {
+        "access_token": at, 
+        "refresh_token": rt, 
+        "token_type": "bearer",
+        "user_id": db_user.id,     
+        "username": db_user.username 
+    }
 
 @app.post("/auth/register", tags=["Auth"])
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -162,6 +169,10 @@ def create_wallet(wallet: schemas.WalletCreate, db: Session = Depends(get_db)):
     db.refresh(new_wallet)
     return new_wallet
 
+@app.get("/wallets/user/{user_id}", response_model=List[schemas.WalletResponse], tags=["Wallets"])
+def get_user_wallets(user_id: int, db: Session = Depends(get_db)):
+    return db.query(models.Wallet).filter(models.Wallet.user_id == user_id).all()
+
 # --- 3. CATEGORIES ---
 @app.post("/categories/", response_model=schemas.CategoryResponse, tags=["Categories"])
 def create_category(category: schemas.CategoryCreate, db: Session = Depends(get_db)):
@@ -175,7 +186,45 @@ def create_category(category: schemas.CategoryCreate, db: Session = Depends(get_
     db.refresh(new_category)
     return new_category
 
-# --- 4. TRANSACTIONS ---
+@app.get("/categories/user/{user_id}", response_model=List[schemas.CategoryResponse], tags=["Categories"])
+def get_categories(user_id: int, db: Session = Depends(get_db)):
+    return db.query(models.Category).filter(
+        (models.Category.user_id == user_id) | (models.Category.user_id.is_(None))
+    ).all()
+
+# --- 4. BUDGETS ---
+@app.get("/budgets/user/{user_id}", response_model=List[schemas.BudgetResponse], tags=["Budgets"])
+def get_user_budgets(user_id: int, month: int, year: int, db: Session = Depends(get_db)):
+    budgets = db.query(models.Budget).filter(
+        models.Budget.user_id == user_id,
+        models.Budget.month == month,
+        models.Budget.year == year,
+        models.Budget.deleted_at == None 
+    ).all()
+
+    results = []
+    for b in budgets:
+        total_spent = db.query(func.sum(models.Transaction.amount)).join(models.Category).filter(
+            models.Transaction.user_id == user_id,
+            models.Transaction.category_id == b.category_id,
+            models.Category.type == 'expense',
+            extract('month', models.Transaction.transaction_date) == month,
+            extract('year', models.Transaction.transaction_date) == year
+        ).scalar() or 0.0
+
+        results.append({
+            "id": b.id,
+            "category_id": b.category_id,
+            "category_name": b.category.name, 
+            "amount_limit": float(b.amount),
+            "actual_spent": float(total_spent),
+            "month": b.month,
+            "year": b.year
+        })
+    
+    return results
+
+# --- 5. TRANSACTIONS ---
 @app.post("/transactions/", tags=["Transactions"])
 def make_transaction(t: schemas.TransactionCreate, db: Session = Depends(get_db)):
     return service.add_transaction(
@@ -208,7 +257,7 @@ def search_transactions(
         min_amount=min_amount, max_amount=max_amount, search_note=note
     )
 
-# --- 5. REPORTS ---
+# --- 6. REPORTS ---
 @app.get("/reports/{user_id}", tags=["Reports"])
 def get_report(user_id: int, month: int, year: int, db: Session = Depends(get_db)):
     return service.get_monthly_report(db, user_id, month, year)
