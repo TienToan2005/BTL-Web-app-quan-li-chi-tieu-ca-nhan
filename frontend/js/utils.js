@@ -45,11 +45,6 @@ const Utils = {
         return str.slice(0, num) + "...";
     },
 
-    getTransactionColor(type) {
-        const t = String(type).toUpperCase();
-        return (t === 'INCOME' || t === 'IN') ? 'text-success' : 'text-danger';
-    },
-
     saveUserSession(data) {
         localStorage.setItem('access_token', data.access_token);
         localStorage.setItem('refresh_token', data.refresh_token);
@@ -62,5 +57,40 @@ const Utils = {
             id: localStorage.getItem('user_id'),
             username: localStorage.getItem('username')
         };
+    }
+};
+
+const Toast = {
+    success(msg) {
+        Swal.fire({
+            icon: 'success',
+            title: 'Thành công!',
+            text: msg,
+            timer: 2000,
+            showConfirmButton: false,
+            timerProgressBar: true,
+            confirmButtonColor: '#1FC06A'
+        });
+    },
+    error(msg) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Ối lỗi rồi...',
+            text: msg,
+            confirmButtonColor: '#1FC06A'
+        });
+    },
+    async confirm(title, text) {
+        const result = await Swal.fire({
+            title: title,
+            text: text,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6e7881',
+            confirmButtonText: 'Đồng ý xóa!',
+            cancelButtonText: 'Hủy'
+        });
+        return result.isConfirmed;
     }
 };

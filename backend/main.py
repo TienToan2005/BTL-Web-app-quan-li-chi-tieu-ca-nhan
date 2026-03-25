@@ -273,15 +273,20 @@ def search_transactions(
     note: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    # 1. Bắt đầu câu truy vấn kèm JOIN
     query = db.query(
         models.Transaction,
         models.Category.name.label("category_name"),
-        models.Category.type.label("category_type")
-    ).join(models.Category, models.Transaction.category_id == models.Category.id)
+        models.Category.type.label("category_type"),
+        models.Category.icon.label("category_icon"),  
+        models.Category.color.label("category_color"),
+        models.Wallet.name.label("wallet_name")      
+    ).join(models.Category, models.Transaction.category_id == models.Category.id)\
+     .join(models.Wallet, models.Transaction.wallet_id == models.Wallet.id)
 
-    # 2. Lọc dữ liệu
-    query = query.filter(models.Transaction.user_id == user_id)
+    query = query.filter(
+        models.Transaction.user_id == user_id,
+        models.Transaction.deleted_at == None
+    )
     if category_id:
         query = query.filter(models.Transaction.category_id == category_id)
     if wallet_id:
@@ -291,16 +296,18 @@ def search_transactions(
 
     results = query.order_by(models.Transaction.transaction_date.desc()).all()
 
-    # 3. Format lại dữ liệu trả về cho Frontend dễ đọc
     formatted_data = []
-    for tx, cat_name, cat_type in results:
+    for tx, cat_name, cat_type, cat_icon, cat_color, w_name in results:
         data = {
             "id": tx.id,
             "amount": tx.amount,
             "note": tx.note,
             "transaction_date": tx.transaction_date,
-            "category_name": cat_name, # Trả về tên danh mục
-            "category_type": cat_type  # Trả về loại: 'EXPENSE' hoặc 'INCOME'
+            "category_name": cat_name,
+            "category_type": cat_type,
+            "category_icon": cat_icon,   
+            "category_color": cat_color, 
+            "wallet_name": w_name       
         }
         formatted_data.append(data)
     
@@ -319,7 +326,8 @@ def get_monthly_report(user_id: int, month: int, year: int, db: Session = Depend
     transactions = db.query(models.Transaction).filter(
         models.Transaction.user_id == user_id,
         models.Transaction.transaction_date >= start_date,
-        models.Transaction.transaction_date <= end_date
+        models.Transaction.transaction_date <= end_date,
+        models.Transaction.deleted_at == None
     ).all()
 
     period_income = 0
@@ -332,9 +340,9 @@ def get_monthly_report(user_id: int, month: int, year: int, db: Session = Depend
             period_expenses += tx.amount
 
     return {
-        "period_income": period_income,
-        "period_expenses": period_expenses,
-        "period_change": period_income - period_expenses
+        "period_income": float(period_income),
+        "period_expenses": float(period_expenses),
+        "period_change": float(period_income - period_expenses)
     }
 
 @app.post("/upload-receipt/{tx_id}")

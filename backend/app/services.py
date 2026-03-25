@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, extract
 from .models import Transaction, Wallet, Category, Budget
 from datetime import datetime
@@ -9,38 +9,54 @@ import os
 
 class TransactionService:
     def add_transaction(self, db: Session, user_id: int, wallet_id: int, category_id: int, amount: float, note: str, transaction_date: datetime):
-        if amount <= 0:
-            raise BusinessException("Số tiền phải lớn hơn 0!")
-        
-        # 1. Tìm thông tin danh mục
-        category = db.query(Category).filter(Category.id == category_id).first()
-        if not category:
-            raise BusinessException("Danh mục không tồn tại" , status_code=404)
+            if amount <= 0:
+                raise BusinessException("Số tiền phải lớn hơn 0!")
+            
+            amount_dec = Decimal(str(amount))
+            month = transaction_date.month
+            year = transaction_date.year
 
-        # 2. Tạo bản ghi giao dịch mới
-        new_tx = Transaction(
-            user_id=user_id,
-            wallet_id=wallet_id,
-            category_id=category_id,
-            amount=Decimal(str(amount)),
-            note=note,
-            transaction_date=transaction_date
-        )
-        db.add(new_tx)
+            category = db.query(Category).filter(Category.id == category_id).first()
+            wallet = db.query(Wallet).filter(Wallet.id == wallet_id, Wallet.user_id == user_id).first()
+            
+            if not category or not wallet:
+                raise BusinessException("Danh mục hoặc Ví không tồn tại", status_code=404)
 
-        # 3. Cập nhật số dư trong ví
-        wallet = db.query(Wallet).filter(Wallet.id == wallet_id).first()
-        if not wallet:
-            raise BusinessException("Ví không tồn tại", status_code=404)
+            if category.type == 'EXPENSE' and wallet.balance < amount_dec:
+                raise BusinessException(f"Số dư ví không đủ! (Hiện có: {float(wallet.balance):,.0f}đ)")
 
-        if category.type == 'EXPENSE':
-            wallet.balance -= Decimal(str(amount))
-        else:
-            wallet.balance += Decimal(str(amount))
+            if category.type == 'EXPENSE':
+                budget_status = self.check_budget(db, user_id, category_id, month, year)
+                if budget_status:
+                    if (Decimal(str(budget_status['spent'])) + amount_dec) > Decimal(str(budget_status['limit'])):
+                        raise BusinessException(f"Vượt quá hạn mức chi tiêu cho '{category.name}'! (Hạn mức: {budget_status['limit']:,.0f}đ)")
 
-        db.commit()
-        db.refresh(wallet)
-        return {"status": "success", "message": "Đã thêm giao dịch và cập nhật ví", "new_balance": float(wallet.balance)}
+            new_tx = Transaction(
+                user_id=user_id,
+                wallet_id=wallet_id,
+                category_id=category_id,
+                amount=amount_dec,
+                note=note,
+                transaction_date=transaction_date
+            )
+            db.add(new_tx)
+
+            if category.type == 'EXPENSE':
+                wallet.balance -= amount_dec
+            else:
+                wallet.balance += amount_dec
+
+            try:
+                db.commit()
+                db.refresh(wallet)
+                return {
+                    "status": "success", 
+                    "message": "Giao dịch thành công", 
+                    "new_balance": float(wallet.balance)
+                }
+            except Exception as e:
+                db.rollback()
+                raise BusinessException(f"Lỗi hệ thống: {str(e)}")
 
     def check_budget(self, db: Session, user_id: int, category_id: int, month: int, year: int):
         budget = db.query(Budget).filter(
@@ -56,6 +72,7 @@ class TransactionService:
         total_spent = db.query(func.sum(Transaction.amount)).filter(
             Transaction.user_id == user_id,
             Transaction.category_id == category_id,
+            Transaction.deleted_at == None,
             extract('month', Transaction.transaction_date) == month,
             extract('year', Transaction.transaction_date) == year
         ).scalar() or 0
@@ -63,75 +80,58 @@ class TransactionService:
         return {
             "limit": float(budget.amount),
             "spent": float(total_spent),
-            "is_over": total_spent > budget.amount
+            "remaining": float(budget.amount - total_spent),
+            "is_over": total_spent >= budget.amount
         }
-    def make_transfer(self, db: Session, user_id: int, from_wallet_id: int, to_wallet_id: int, amount: float, note: str):
-        if amount <= 0:
-            raise BusinessException("Số tiền chuyển phải lớn hơn 0")
-        
-        wallet_from = db.query(Wallet).filter(Wallet.id == from_wallet_id, Wallet.user_id == user_id).first()
-        wallet_to = db.query(Wallet).filter(Wallet.id == to_wallet_id, Wallet.user_id == user_id).first()
-        
-        if not wallet_from or not wallet_to:
-            raise BusinessException("Một trong hai ví không tồn tại", status_code=404)
-        
-        if wallet_from.balance < amount:
-            raise BusinessException("Số dư ví gửi không đủ để chuyển khoản")
 
-        link_id = db.query(func.max(Transaction.id)).scalar() or 0
-        link_id += 1 
-
-        tx_out = Transaction(
-            user_id=user_id, wallet_id=from_wallet_id, amount=Decimal(str(amount)),
-            note=f"[Chuyển tiền] {note}", transaction_date=datetime.now(),
-            linked_transaction_id=link_id, category_id=None
-        )
-        
-        tx_in = Transaction(
-            user_id=user_id, wallet_id=to_wallet_id, amount=Decimal(str(amount)),
-            note=f"[Nhận tiền] {note}", transaction_date=datetime.now(),
-            linked_transaction_id=link_id, category_id=None
-        )
-
-        wallet_from.balance -= Decimal(str(amount))
-        wallet_to.balance += Decimal(str(amount))
-
-        db.add(tx_out)
-        db.add(tx_in)
-        
-        db.commit() # Rollback
-        
-        return {"status": "success", "message": "Chuyển khoản thành công"}
     def delete_transaction(self, db: Session, transaction_id: int, user_id: int):
-        tx = db.query(Transaction).filter(
+        tx = db.query(Transaction).options(joinedload(Transaction.category)).filter(
             Transaction.id == transaction_id, 
             Transaction.user_id == user_id
         ).first()
         
-        if not tx:
+        if not tx or tx.deleted_at:
             raise BusinessException("Giao dịch không tồn tại", status_code=404)
 
         wallet = db.query(Wallet).filter(Wallet.id == tx.wallet_id).first()
-        if not wallet:
-            raise BusinessException("Ví liên quan không tồn tại", status_code=404)
-
-        category = db.query(Category).filter(Category.id == tx.category_id).first()
-
-        if category.type == 'EXPENSE':
-            wallet.balance += tx.amount
+        
+        amount_dec = tx.amount
+        if tx.category.type == 'EXPENSE':
+            wallet.balance += amount_dec
         else:
-            wallet.balance -= tx.amount
+            wallet.balance -= amount_dec
 
         tx.deleted_at = datetime.now()
         tx.deleted_by = str(user_id)
         
         db.commit()
+        return {"status": "success", "new_balance": float(wallet.balance)}
+
+    def make_transfer(self, db: Session, user_id: int, from_wallet_id: int, to_wallet_id: int, amount: float, note: str):
+        if amount <= 0:
+            raise BusinessException("Số tiền chuyển phải lớn hơn 0")
         
-        return {
-            "status": "success", 
-            "message": "Đã xóa giao dịch và cập nhật lại số dư ví",
-            "new_balance": float(wallet.balance)
-        }
+        amount_dec = Decimal(str(amount))
+        w_from = db.query(Wallet).filter(Wallet.id == from_wallet_id, Wallet.user_id == user_id).first()
+        w_to = db.query(Wallet).filter(Wallet.id == to_wallet_id, Wallet.user_id == user_id).first()
+        
+        if not w_from or not w_to:
+            raise BusinessException("Ví không tồn tại")
+        
+        if w_from.balance < amount_dec:
+            raise BusinessException("Số dư ví gửi không đủ")
+
+        now = datetime.now()
+        tx_out = Transaction(user_id=user_id, wallet_id=from_wallet_id, amount=amount_dec, note=f"[Chuyển] {note}", transaction_date=now)
+        tx_in = Transaction(user_id=user_id, wallet_id=to_wallet_id, amount=amount_dec, note=f"[Nhận] {note}", transaction_date=now)
+
+        w_from.balance -= amount_dec
+        w_to.balance += amount_dec
+
+        db.add_all([tx_out, tx_in])
+        db.commit()
+        return {"status": "success"}
+
     def get_filtered_transactions(
         self, db: Session, user_id: int, 
         page: int = 1, page_size: int = 20,
