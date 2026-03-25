@@ -1,173 +1,181 @@
+
 const BudgetManager = {
     async init() {
-        const user = Auth.getCurrentUser();
-        if (!user.id) return;
-
-        const period = Utils.getCurrentPeriod();
-        
-        const titleElem = document.getElementById('currentMonthYear');
-        if (titleElem) {
-            const monthNames = ["January", "February", "March", "April", "May", "June",
-                                "July", "August", "September", "October", "November", "December"];
-            titleElem.innerText = `${monthNames[period.month - 1]} ${period.year}`;
-        }
-
-        try {
-            const budgets = await API.getBudgets(user.id, period.month, period.year);
-            this.renderBudgets(budgets);
-        } catch (error) {
-            console.error("Lỗi tải Ngân sách:", error);
-            this.showEmptyState();
-        }
-    },
-
-    renderBudgets(budgets) {
-        const container = document.getElementById('budget-list');
-        if (!container) return;
-
-        if (!budgets || budgets.length === 0) {
-            this.showEmptyState();
+        const user = Utils.getUser();
+        if (!user || !user.id) {
+            window.location.href = 'login.html';
             return;
         }
 
-        container.innerHTML = budgets.map(budget => {
-            const spent = budget.actual_spent || 0;
-            const limit = budget.amount_limit || budget.amount;
+        document.getElementById('userDisplay').innerText = user.username;
+        const period = Utils.getCurrentPeriod();
+        document.getElementById('currentMonthYear').innerText = `Tháng ${period.month}, ${period.year}`;
+
+        await this.loadBudgets();
+        this.setupForm(user.id);
+    },
+
+    async loadBudgets() {
+        try {
+            const user = Utils.getUser();
+            const period = Utils.getCurrentPeriod();
+            const data = await API.getBudgets(user.id, period.month, period.year);
             
-            const rawPercent = (spent / limit) * 100;
-            const displayPercent = Math.min(rawPercent, 100).toFixed(0);
+            this.renderBudgets(data);
+            this.renderChart(data); 
+        } catch (e) { console.error(e); }
+    },
+
+    renderBudgets(items) {
+        const container = document.getElementById('budget-list');
+        
+        if (!items || items.length === 0) {
+            container.innerHTML = `
+                <div class="col-12 text-center py-5">
+                    <img src="https://cdn-icons-png.flaticon.com/512/4076/4076432.png" width="100" class="opacity-25 mb-3">
+                    <p class="text-secondary">Bạn chưa thiết lập ngân sách nào cho tháng này.</p>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = items.map(b => {
+            const spent = b.actual_spent || 0;
+            const limit = b.amount_limit || 1;
+            const percent = Math.min((spent / limit) * 100, 100);
             
             let progressClass = 'bg-success'; 
-            if (rawPercent >= 100) progressClass = 'bg-danger'; 
-            else if (rawPercent >= 80) progressClass = 'bg-warning'; 
+            if (percent >= 100) progressClass = 'bg-danger'; 
+            else if (percent > 70) progressClass = 'bg-warning';
+
+            const remaining = limit - spent;
 
             return `
                 <div class="col-md-6 mb-4">
-                    <div class="card border-0 shadow-sm custom-card p-4 h-100">
+                    <div class="card border-0 shadow-sm custom-card p-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h6 class="fw-bold mb-0 text-dark">
-                                <i class="fa-solid fa-tag text-spendee me-2"></i>${budget.category_name}
-                            </h6>
-                            <span class="badge ${rawPercent >= 100 ? 'bg-danger' : 'bg-light text-dark'} rounded-pill px-3">
-                                ${rawPercent.toFixed(1)}%
+                            <h5 class="fw-bold m-0 text-dark">${b.category_name}</h5>
+                            <span class="badge ${remaining >= 0 ? 'bg-light text-success' : 'bg-light text-danger'} border">
+                                ${remaining >= 0 ? 'Còn lại' : 'Vượt mức'}: ${Utils.formatMoney(Math.abs(remaining))}
                             </span>
                         </div>
                         
                         <div class="progress mb-3" style="height: 12px; border-radius: 10px; background-color: #f0f0f0;">
                             <div class="progress-bar ${progressClass} progress-bar-striped progress-bar-animated" 
                                  role="progressbar" 
-                                 style="width: ${displayPercent}%" 
-                                 aria-valuenow="${displayPercent}" 
+                                 style="width: ${percent}%" 
+                                 aria-valuenow="${percent}" 
                                  aria-valuemin="0" 
                                  aria-valuemax="100">
                             </div>
                         </div>
 
-                        <div class="d-flex justify-content-between small">
-                            <div class="text-secondary">Đã dùng: <span class="text-dark fw-bold">${Utils.formatMoney(spent)}</span></div>
-                            <div class="text-secondary">Hạn mức: <span class="text-dark fw-bold">${Utils.formatMoney(limit)}</span></div>
-                        </div>
-                        
-                        ${spent > limit ? `
-                            <div class="alert alert-danger border-0 py-2 px-3 mt-3 mb-0 small fw-bold" style="border-radius: 8px;">
-                                <i class="fa-solid fa-triangle-exclamation me-2"></i> Vượt định mức ${Utils.formatMoney(spent - limit)}
+                        <div class="d-flex justify-content-between align-items-center small">
+                            <div class="text-secondary">
+                                Đã tiêu: <span class="fw-bold text-dark">${Utils.formatMoney(spent)}</span>
                             </div>
-                        ` : ''}
+                            <div class="text-secondary">
+                                Hạn mức: <span class="fw-bold text-dark">${Utils.formatMoney(limit)}</span>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            `;
+                </div>`;
         }).join('');
     },
 
-    showEmptyState() {
-        const container = document.getElementById('budget-list');
-        if (container) {
-            container.innerHTML = `
-                <div class="col-12 text-center py-5">
-                    <div class="bg-white p-5 rounded-4 shadow-sm border border-dashed">
-                        <img src="https://cdn-icons-png.flaticon.com/512/4076/4076549.png" width="80" class="opacity-25 mb-3">
-                        <h5 class="text-dark fw-bold">Chưa có ngân sách nào</h5>
-                        <p class="text-secondary mb-4">Hãy thiết lập ngân sách để Gemini AI có thể tư vấn chi tiêu cho Toàn tốt hơn.</p>
-                        <button class="btn btn-spendee text-white fw-bold px-4 py-2" onclick="BudgetManager.openAddModal()">
-                            + Tạo ngân sách đầu tiên
-                        </button>
-                    </div>
-                </div>
-            `;
+    async openAddModal() {
+        const user = Utils.getUser();
+        const categorySelect = document.getElementById('budgetCategory');
+        
+        try {
+            const categories = await API.getCategories(user.id);
+            const expenseCats = categories.filter(c => c.type === 'EXPENSE');
+            
+            categorySelect.innerHTML = expenseCats.map(c => 
+                `<option value="${c.id}">${c.name}</option>`
+            ).join('');
+
+            const modal = new bootstrap.Modal(document.getElementById('addBudgetModal'));
+            modal.show();
+        } catch (error) {
+            Toast.error("Không thể lấy danh mục!");
         }
     },
 
-    async openAddModal() {
-        const user = Auth.getCurrentUser();
-        try {
-            const categories = await API.getCategories(user.id);
-            const select = document.getElementById('budgetCategory');
+    setupForm(userId) {
+        const form = document.getElementById('addBudgetForm');
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const period = Utils.getCurrentPeriod();
             
-            if (select) {
-                select.innerHTML = categories
-                    .filter(c => c.type === 'expense')
-                    .map(c => `<option value="${c.id}">${c.name}</option>`)
-                    .join('');
-            }
+            const budgetData = {
+                user_id: parseInt(userId),
+                category_id: parseInt(document.getElementById('budgetCategory').value),
+                amount: parseFloat(document.getElementById('budgetAmount').value),
+                month: period.month,
+                year: period.year
+            };
 
-            const modalElem = document.getElementById('addBudgetModal');
-            if (modalElem) {
-                const myModal = new bootstrap.Modal(modalElem);
-                myModal.show();
+            try {
+                await API.createBudget(budgetData);
+                
+                bootstrap.Modal.getInstance(document.getElementById('addBudgetModal')).hide();
+                form.reset();
+                
+                Toast.success("Thiết lập ngân sách thành công! 🎯");
+                await this.loadBudgets();
+            } catch (error) {
+                Toast.error(error.message);
             }
-        } catch (error) {
-            console.error("Lỗi mở Modal:", error);
-            alert("Không thể tải danh mục chi tiêu!");
+        };
+    },
+    renderChart(items) {
+        const ctx = document.getElementById('budgetChart').getContext('2d');
+        
+        if (window.myBudgetChart) {
+            window.myBudgetChart.destroy();
         }
+
+        const labels = items.map(b => b.category_name);
+        const limitData = items.map(b => b.amount_limit);
+        const spentData = items.map(b => b.actual_spent);
+
+        window.myBudgetChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Đã tiêu',
+                        data: spentData,
+                        backgroundColor: '#1FC06A',
+                        borderRadius: 5,
+                    },
+                    {
+                        label: 'Hạn mức',
+                        data: limitData,
+                        backgroundColor: '#e9ecef',
+                        borderRadius: 5,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: false },
+                    y: { 
+                        beginAtZero: true,
+                        ticks: {
+                            callback: value => Utils.formatMoney(value)
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { position: 'top' }
+                }
+            }
+        });
     }
 };
-
-document.addEventListener('submit', async (e) => {
-    if (e.target && e.target.id === 'addBudgetForm') {
-        e.preventDefault();
-        
-        const user = Auth.getCurrentUser();
-        const period = Utils.getCurrentPeriod();
-        const btn = e.target.querySelector('button[type="submit"]');
-
-        const data = {
-            category_id: parseInt(document.getElementById('budgetCategory').value),
-            amount: parseFloat(document.getElementById('budgetAmount').value),
-            month: period.month,
-            year: period.year
-        };
-
-        const originalText = btn.innerText;
-        btn.disabled = true;
-        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Đang lưu...`;
-
-        try {
-            const response = await fetch(`${BASE_URL}/budgets/`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${user.token}` 
-                },
-                body: JSON.stringify(data)
-            });
-
-            if (response.ok) {
-                const modalInstance = bootstrap.Modal.getInstance(document.getElementById('addBudgetModal'));
-                if (modalInstance) modalInstance.hide();
-                
-                e.target.reset();
-                BudgetManager.init(); 
-            } else {
-                const err = await response.json();
-                alert(err.message || "Lỗi khi tạo ngân sách!");
-            }
-        } catch (error) {
-            alert("Lỗi kết nối server!");
-        } finally {
-            btn.disabled = false;
-            btn.innerText = originalText;
-        }
-    }
-});
 
 document.addEventListener('DOMContentLoaded', () => BudgetManager.init());

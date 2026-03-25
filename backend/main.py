@@ -2,6 +2,7 @@ import uuid
 import os 
 import shutil
 import magic
+from app.ai_service import AIService
 from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile, File
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -220,7 +221,27 @@ def delete_category(cat_id: int, user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Không thể xóa vì danh mục này đang có giao dịch!")
     
 # --- 4. BUDGETS ---
-@app.get("/budgets/user/{user_id}", response_model=List[schemas.BudgetResponse], tags=["Budgets"])
+@app.post("/budgets/", tags=["Budgets"])
+def create_budget(budget: schemas.BudgetCreate, db: Session = Depends(get_db)):
+    existing_budget = db.query(models.Budget).filter(
+        models.Budget.user_id == budget.user_id,
+        models.Budget.category_id == budget.category_id,
+        models.Budget.month == budget.month,
+        models.Budget.year == budget.year
+    ).first()
+
+    if existing_budget:
+        existing_budget.amount = budget.amount
+        db.commit()
+        return {"status": "updated", "message": "Đã cập nhật hạn mức mới!"}
+
+    new_budget = models.Budget(**budget.dict())
+    db.add(new_budget)
+    db.commit()
+    db.refresh(new_budget)
+    return {"status": "success", "message": "Đã thiết lập ngân sách!"}
+
+@app.get("/budgets/user/{user_id}", tags=["Budgets"])
 def get_user_budgets(user_id: int, month: int, year: int, db: Session = Depends(get_db)):
     results = db.query(
         models.Budget,
@@ -230,24 +251,26 @@ def get_user_budgets(user_id: int, month: int, year: int, db: Session = Depends(
         and_(
             models.Transaction.category_id == models.Budget.category_id,
             models.Transaction.user_id == user_id,
+            models.Transaction.deleted_at == None,
             extract('month', models.Transaction.transaction_date) == month,
             extract('year', models.Transaction.transaction_date) == year
         )
-    ).filter(
+    ).join(models.Category, models.Budget.category_id == models.Category.id) \
+     .filter(
         models.Budget.user_id == user_id,
         models.Budget.month == month,
         models.Budget.year == year
-    ).group_by(models.Budget.id).options(joinedload(models.Budget.category)).all()
+    ).group_by(models.Budget.id).all()
 
     return [
         {
-            "id": row.Budget.id,
-            "category_name": row.Budget.category.name,
-            "amount_limit": float(row.Budget.amount),
-            "actual_spent": float(row.actual_spent),
-            "month": row.Budget.month,
-            "year": row.Budget.year
-        } for row in results
+            "id": r.Budget.id,
+            "category_name": r.Budget.category.name,
+            "amount_limit": float(r.Budget.amount),
+            "actual_spent": float(r.actual_spent),
+            "month": r.Budget.month,
+            "year": r.Budget.year
+        } for r in results
     ]
 
 # --- 5. TRANSACTIONS ---
@@ -370,11 +393,14 @@ async def upload_receipt(tx_id: int, file: UploadFile = File(...), db: Session =
 def get_smart_advice(user_id: int, month: int, year: int, db: Session = Depends(get_db)):
     report = service.get_monthly_report(db, user_id, month, year)
     
-    data_str = ", ".join([f"{item['category']}: {item['total']}đ" for item in report])
+    data_str = ", ".join([f"{item['category']}: {item['total']:,}đ" for item in report])
     
-    if not data_str:
-        return {"advice": "Tháng này chi tiêu rất hợp lý, cứ thế phát huy nhé!"}
+    if not report:
+        return {"advice": "Bạn chưa có giao dịch nào trong tháng này để mình tư vấn rồi!"}
 
-    advice = ai_service.get_financial_advice(data_str)
-    
-    return {"advice": advice}
+    try:
+        advice = ai_service.get_financial_advice(data_str)
+        return {"advice": advice}
+    except Exception as e:
+        print(f"AI Error: {e}")
+        return {"advice": "Tháng này ""Người ấy"" chi tiêu khá sôi động đấy, hãy chú ý các mục tiêu lớn nhé!"}

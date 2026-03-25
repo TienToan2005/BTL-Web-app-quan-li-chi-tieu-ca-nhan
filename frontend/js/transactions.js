@@ -17,12 +17,26 @@ const TransactionManager = {
     },
 
     async openAddModal() {
-        const user = Auth.getCurrentUser();
-        await this.loadFilters(user.id);
+        const user = Utils.getUser();
         
-        const modalEl = document.getElementById('addTransactionModal');
-        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
-        modalInstance.show();
+        const categories = await API.getCategories(user.id);
+        
+        const catSelect = document.getElementById('tCategory');
+        
+        const expenses = categories.filter(c => c.type === 'EXPENSE');
+        const incomes = categories.filter(c => c.type === 'INCOME');
+
+        catSelect.innerHTML = `
+            <option value="">Chọn danh mục...</option>
+            <optgroup label="🔴 KHOẢN CHI">
+                ${expenses.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+            </optgroup>
+            <optgroup label="🟢 KHOẢN THU">
+                ${incomes.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+            </optgroup>
+        `;
+
+        new bootstrap.Modal(document.getElementById('addTransactionModal')).show();
     },
 
     async loadFilters(userId) {

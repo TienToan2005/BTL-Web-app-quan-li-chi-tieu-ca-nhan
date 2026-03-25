@@ -58,23 +58,30 @@ class CategoryResponse(CategoryBase):
     id: int 
     class Config:
         from_attributes = True
+        
 class BudgetBase(BaseModel):
     category_id: int
-    amount: Decimal = Field(gt=0, description="Hạn mức ngân sách phải lớn hơn 0")
+    amount: Decimal = Field(gt=0, description="Hạn mức phải lớn hơn 0")
     month: int = Field(ge=1, le=12)
     year: int = Field(ge=2000)
 
 class BudgetCreate(BudgetBase):
-    pass 
+    user_id: int
 
-class BudgetResponse(BudgetBase):
+class BudgetResponse(BaseModel):
     id: int
     user_id: int
+    category_id: int
+    amount: Decimal = Field(alias="amount_limit")
+    month: int
+    year: int
+    
     category_name: Optional[str] = None 
-    actual_spent: Decimal = 0.0       
+    actual_spent: Decimal = Decimal("0.0") 
     
     class Config:
-        from_attributes = True #
+        from_attributes = True
+        populate_by_name = True
 
 class TransactionCreate(BaseModel):
     user_id: int
