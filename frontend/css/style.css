@@ -128,3 +128,8 @@ body {
     background: #1FC06A;
     color: white;
 }
+.icon-circle {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}

@@ -36,8 +36,8 @@ class Wallet(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     name = Column(String(100), nullable=False)
     balance = Column(DECIMAL(15, 2), default=0.00)
-    icon = Column(String(255), nullable=True)
-    color = Column(String(10), default="#000000")
+    icon = Column(String(50), default="fa-wallet")
+    color = Column(String(20), default="#1FC06A")
     
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

@@ -174,11 +174,12 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 # --- 2. WALLETS ---
 @app.post("/wallets/", response_model=schemas.WalletResponse, tags=["Wallets"])
 def create_wallet(wallet: schemas.WalletCreate, db: Session = Depends(get_db)):
-    new_wallet = models.Wallet(**wallet.dict())
-    db.add(new_wallet)
+    db_wallet = models.Wallet(**wallet.dict()) 
+    
+    db.add(db_wallet)
     db.commit()
-    db.refresh(new_wallet)
-    return new_wallet
+    db.refresh(db_wallet)
+    return db_wallet
 
 @app.get("/wallets/user/{user_id}", response_model=List[schemas.WalletResponse], tags=["Wallets"])
 def get_user_wallets(user_id: int, db: Session = Depends(get_db)):
@@ -187,11 +188,8 @@ def get_user_wallets(user_id: int, db: Session = Depends(get_db)):
 # --- 3. CATEGORIES ---
 @app.post("/categories/", response_model=schemas.CategoryResponse, tags=["Categories"])
 def create_category(category: schemas.CategoryCreate, db: Session = Depends(get_db)):
-    new_category = models.Category(
-        user_id=category.user_id,
-        name=category.name,
-        type=category.type
-    )
+    new_category = models.Category(**category.dict()) 
+    
     db.add(new_category)
     db.commit()
     db.refresh(new_category)

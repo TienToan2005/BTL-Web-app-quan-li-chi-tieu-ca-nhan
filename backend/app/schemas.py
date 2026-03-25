@@ -30,10 +30,13 @@ class UserResponse(UserBase):
 
 class WalletBase(BaseModel):
     name: str
-    balance: Decimal = Field(default=0.00)
+    balance: float
+    user_id: int
+    icon: Optional[str] = "fa-wallet"   
+    color: Optional[str] = "#1FC06A"
 
 class WalletCreate(WalletBase):
-    user_id: int 
+    pass 
 
 class WalletResponse(WalletBase):
     id: int
@@ -45,9 +48,11 @@ class CategoryBase(BaseModel):
     name: str
     type: str 
     user_id: int
+    icon: str = "fa-tag"    
+    color: str = "#1FC06A"
 
 class CategoryCreate(CategoryBase):
-    pass 
+    pass
 
 class CategoryResponse(CategoryBase):
     id: int 

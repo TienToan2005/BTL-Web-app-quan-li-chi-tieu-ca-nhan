@@ -3,58 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cài đặt - $pendee</title>
+    <title>Cài đặt - Spendee Pro</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    
-    <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f4f7f6; }
-        .text-spendee { color: #1FC06A; }
-        .bg-spendee { background-color: #1FC06A; }
-        .card { border-radius: 15px; border: none; }
-        
-        .icon-circle {
-            width: 42px; height: 42px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.1rem;
-        }
-
-        .list-group-item.active {
-            background-color: #1FC06A !important;
-            border-color: #1FC06A !important;
-            font-weight: 600;
-        }
-        
-        .cursor-pointer { cursor: pointer; }
-    </style>
 </head>
-<body>
+<body style="font-family: 'Inter', sans-serif; background-color: #f8fafc;">
 
     <nav class="navbar navbar-expand-lg bg-white shadow-sm py-3 mb-5">
         <div class="container">
             <a class="navbar-brand fw-bold fs-4 text-dark" href="dashboard.html">
-                <i class="fa-solid fa-chart-pie text-spendee"></i> $pendee
+                <i class="fa-solid fa-chart-pie" style="color: #1FC06A;"></i> $pendee
             </a>
-            <div class="collapse navbar-collapse justify-content-center">
-                <ul class="navbar-nav">
-                    <li class="nav-item mx-2"><a class="nav-link text-secondary" href="dashboard.html">Dashboard</a></li>
-                    <li class="nav-item mx-2"><a class="nav-link text-secondary" href="budgets.html">Budgets</a></li>
-                    <li class="nav-item mx-2"><a class="nav-link text-secondary" href="transactions.html">Transactions</a></li>
-                </ul>
-            </div>
-            <div class="dropdown">
+            <div class="dropdown ms-auto">
                 <div class="d-flex align-items-center cursor-pointer" data-bs-toggle="dropdown">
                     <img id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=random" class="rounded-circle me-2" width="35">
                     <span id="userDisplay" class="fw-bold text-secondary text-capitalize">User</span>
-                    <i class="fa-solid fa-chevron-down ms-2 small text-secondary"></i>
                 </div>
-                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
-                    <li><a class="dropdown-item py-2 text-danger fw-bold" href="#" onclick="Auth.logout()"><i class="fa-solid fa-right-from-bracket me-2"></i> Đăng xuất</a></li>
-                </ul>
             </div>
         </div>
     </nav>
@@ -74,78 +40,76 @@
 
             <div class="col-md-9">
                 
-                <div class="card-custom mb-4">
-                    <div class="row g-3 align-items-end">
-                        <div class="col-md-2 position-relative">
-                            <label class="small fw-bold text-muted mb-1 d-block">Biểu tượng</label>
-                            <div id="iconPickerBtn" class="icon-select-box cursor-pointer bg-light rounded-3 p-2 d-flex align-items-center justify-content-between">
-                                <i class="fa-solid fa-icons" id="selectedIconDisplay"></i>
-                                <i class="fa-solid fa-chevron-down small opacity-50"></i>
+                <div id="section-category">
+                    <div class="card-custom mb-4 bg-white p-3 rounded-4 shadow-sm">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-2 position-relative">
+                                <label class="small fw-bold text-muted mb-1 d-block">Biểu tượng</label>
+                                <div id="iconPickerBtn" class="icon-select-box cursor-pointer bg-light rounded-3 p-2 d-flex align-items-center justify-content-between">
+                                    <i class="fa-solid fa-tag" id="selectedIconDisplay"></i>
+                                    <i class="fa-solid fa-chevron-down small opacity-50"></i>
+                                </div>
+                                <div id="iconDropdown" class="icon-dropdown-menu d-none shadow-lg border-0"><div class="icon-grid" id="iconGrid"></div></div>
                             </div>
-                            
-                            <div id="iconDropdown" class="icon-dropdown-menu d-none shadow-lg border-0">
-                                <div class="icon-grid" id="iconGrid">
-                                    </div>
+                            <div class="col-md-1">
+                                <label class="small fw-bold text-muted mb-1 d-block">Màu</label>
+                                <input type="color" id="catColor" class="form-control form-control-color border-0 bg-light w-100" value="#1FC06A">
                             </div>
-                        </div>
-
-                        <div class="col-md-1">
-                            <label class="small fw-bold text-muted mb-1 d-block">Màu sắc</label>
-                            <input type="color" id="catColor" class="form-control form-control-color border-0 bg-light w-100" value="#1FC06A">
-                        </div>
-
-                        <div class="col-md-5">
-                            <label class="small fw-bold text-muted mb-1 d-block">Tên</label>
-                            <input type="text" id="catName" class="form-control border-0 bg-light" placeholder="Tên danh mục mới">
-                        </div>
-
-                        <div class="col-md-2">
-                            <label class="small fw-bold text-muted mb-1 d-block">Loại</label>
-                            <select id="catType" class="form-select border-0 bg-light">
-                                <option value="EXPENSE">Chi phí</option>
-                                <option value="INCOME">Thu nhập</option>
-                            </select>
-                        </div>
-
-                        <div class="col-md-2">
-                            <button class="btn btn-success w-100 fw-bold py-2" onclick="SettingsManager.createNewCategory()">
-                                Tạo danh mục
-                            </button>
+                            <div class="col-md-5">
+                                <label class="small fw-bold text-muted mb-1 d-block">Tên danh mục</label>
+                                <input type="text" id="catName" class="form-control border-0 bg-light" placeholder="Ăn sáng, Bạn gái...">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="small fw-bold text-muted mb-1 d-block">Loại</label>
+                                <select id="catType" class="form-select border-0 bg-light">
+                                    <option value="EXPENSE">Chi phí</option>
+                                    <option value="INCOME">Thu nhập</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-success w-100 fw-bold py-2 border-0" onclick="SettingsManager.createNewCategory()" style="background-color: #1FC06A;">Tạo</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                    <div class="card shadow-sm p-4">
+                    <div class="card shadow-sm p-4 rounded-4 border-0">
                         <h6 class="fw-bold text-secondary mb-4">Danh mục hiện tại</h6>
-                        <div id="categoryList">
-                            </div>
+                        <div id="categoryList"></div>
                     </div>
                 </div>
 
                 <div id="section-wallet" class="d-none">
-                    <div class="card shadow-sm p-4 mb-4">
-                        <h5 class="fw-bold mb-4">Thêm ví mới</h5>
-                        <form id="addWalletForm">
+                    <div class="card-custom mb-4 bg-white p-3 rounded-4 shadow-sm">
+                        <form id="addWalletFormHorizontal">
                             <div class="row g-3 align-items-end">
-                                <div class="col-md-5">
-                                    <label class="small fw-bold text-secondary mb-2">Tên ví</label>
-                                    <input type="text" id="wName" class="form-control" placeholder="Ví dụ: Ví MoMo, Techcombank..." required>
+                                <div class="col-md-2 position-relative">
+                                    <label class="small fw-bold text-muted mb-1 d-block">Biểu tượng</label>
+                                    <div id="walletIconPickerBtn" class="icon-select-box cursor-pointer bg-light rounded-3 p-2 d-flex align-items-center justify-content-between">
+                                        <i class="fa-solid fa-wallet" id="selectedWalletIconDisplay"></i>
+                                        <i class="fa-solid fa-chevron-down small opacity-50"></i>
+                                    </div>
+                                    <div id="walletIconDropdown" class="icon-dropdown-menu d-none shadow-lg border-0"><div class="icon-grid" id="walletIconGrid"></div></div>
                                 </div>
-                                <div class="col-md-5">
-                                    <label class="small fw-bold text-secondary mb-2">Số dư khởi tạo</label>
-                                    <input type="number" id="wBalance" class="form-control" placeholder="0" required>
+                                <div class="col-md-1">
+                                    <label class="small fw-bold text-muted mb-1 d-block">Màu</label>
+                                    <input type="color" id="walletColor" class="form-control form-control-color border-0 bg-light w-100" value="#1FC06A">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="small fw-bold text-muted mb-1 d-block">Tên ví</label>
+                                    <input type="text" id="wNameHorizontal" class="form-control border-0 bg-light" placeholder="MoMo, Techcombank..." required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="small fw-bold text-muted mb-1 d-block">Số dư</label>
+                                    <input type="number" id="wBalanceHorizontal" class="form-control border-0 bg-light" placeholder="0" required>
                                 </div>
                                 <div class="col-md-2">
-                                    <button type="submit" class="btn btn-primary w-100 fw-bold border-0">Thêm ví</button>
+                                    <button type="submit" class="btn btn-primary w-100 fw-bold py-2 border-0 shadow-sm" style="background-color: #1FC06A;">Thêm ví</button>
                                 </div>
                             </div>
                         </form>
                     </div>
-
-                    <div class="card shadow-sm p-4">
+                    <div class="card shadow-sm p-4 rounded-4 border-0">
                         <h6 class="fw-bold text-secondary mb-4">Ví của tôi</h6>
-                        <div id="walletList">
-                            </div>
+                        <div id="walletList" class="d-flex flex-column gap-2"></div>
                     </div>
                 </div>
 

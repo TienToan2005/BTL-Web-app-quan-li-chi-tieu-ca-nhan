@@ -7,6 +7,11 @@ const SPENDEE_ICONS = [
     "fa-notes-medical", "fa-landmark", "fa-money-bill-trend-up", "fa-file-invoice-dollar",
     "fa-table-tennis-paddle-ball", "fa-flower", "fa-tie", "fa-tag"
 ];
+const WALLET_ICONS = [
+    "fa-wallet", "fa-credit-card", "fa-building-columns", "fa-money-bill-1", 
+    "fa-piggy-bank", "fa-vault", "fa-coins", "fa-mobile-screen-button", 
+    "fa-sack-dollar", "fa-money-check-dollar", "fa-hand-holding-dollar", "fa-credit-card"
+];
 
 const CategoryConfig = {
     // --- THU NHẬP (INCOME) ---

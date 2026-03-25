@@ -90,7 +90,7 @@ const API = {
         localStorage.clear();
         window.location.href = 'login.html';
     },
-
+    
     async getWallets(userId) {
         return this.fetchWithAuth(`/wallets/user/${userId}`);
     },
@@ -99,6 +99,12 @@ const API = {
         return this.fetchWithAuth('/wallets/', {
             method: 'POST',
             body: JSON.stringify(data)
+        });
+    },
+
+    async deleteCategory(catId, userId) {
+        return this.fetchWithAuth(`/categories/${catId}?user_id=${userId}`, {
+            method: 'DELETE'
         });
     },
 
