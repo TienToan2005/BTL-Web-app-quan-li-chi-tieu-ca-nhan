@@ -1,151 +1,226 @@
+/**
+ * Settings Manager - Bản chuẩn UI Spendee 2026 cho Toàn
+ */
 const SettingsManager = {
-    // 1. Hàm khởi tạo (BẮT BUỘC PHẢI CÓ)
+    selectedIcon: "fa-tag", // Lưu icon đang chọn từ Picker
+
     async init() {
+        console.log("⚙️ Settings Manager đang khởi tạo...");
         const user = Auth.getCurrentUser();
         if (!user || !user.id) {
             window.location.href = 'login.html';
             return;
         }
 
-        const userDisplay = document.getElementById('userDisplay');
-        if (userDisplay) userDisplay.innerText = user.username;
+        if (document.getElementById('userDisplay')) {
+            document.getElementById('userDisplay').innerText = user.username;
+        }
 
-        // Mặc định load Danh mục khi vào trang
+        // 1. Load danh sách danh mục hiện có
         await this.loadCategories(user.id);
-        this.setupForm(user.id);
+        
+        // 2. Khởi tạo bộ chọn biểu tượng (Icon Picker)
+        this.initIconPicker();
     },
 
-    // 2. Logic chuyển đổi giữa tab Danh mục và tab Ví
-    async switchTab(tabName, element) {
-        const catSection = document.getElementById('section-category');
-        const walSection = document.getElementById('section-wallet');
-        const user = Auth.getCurrentUser();
+    // --- BỘ CHỌN BIỂU TƯỢNG (ICON PICKER) ---
+    initIconPicker() {
+        const grid = document.getElementById('iconGrid');
+        const btn = document.getElementById('iconPickerBtn');
+        const dropdown = document.getElementById('iconDropdown');
+        const nameInput = document.getElementById('catName');
 
-        // Đổi màu xanh cho nút đang chọn ở Sidebar
-        document.querySelectorAll('#settings-sidebar .list-group-item').forEach(item => {
-            item.classList.remove('active');
+        if (!grid || !btn) return;
+
+        // Vẽ danh sách icon từ mảng SPENDEE_ICONS (trong category-data.js)
+        if (typeof SPENDEE_ICONS !== 'undefined') {
+            grid.innerHTML = SPENDEE_ICONS.map(icon => `
+                <div class="icon-option" onclick="SettingsManager.selectIcon('${icon}')">
+                    <i class="fa-solid ${icon}"></i>
+                </div>
+            `).join('');
+        }
+
+        // Bật/tắt menu khi bấm vào nút Biểu tượng
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            dropdown.classList.toggle('d-none');
+        };
+
+        // Đóng menu khi bấm ra ngoài vùng chọn
+        document.addEventListener('click', () => {
+            if (dropdown) dropdown.classList.add('d-none');
         });
-        element.classList.add('active');
 
-        if (tabName === 'wallet') {
-            catSection.classList.add('d-none');
-            walSection.classList.remove('d-none');
-            await this.loadWallets(user.id); // Tự viết thêm hàm loadWallets nếu cần
-        } else {
-            walSection.classList.add('d-none');
-            catSection.classList.remove('d-none');
-            await this.loadCategories(user.id);
+        // Tự động nhận diện Icon khi Toàn gõ tên (Ví dụ: gõ "Game" tự nhảy icon gamepad)
+        if (nameInput) {
+            nameInput.addEventListener('input', (e) => {
+                const style = getCategoryStyle(e.target.value);
+                if (style && style.icon !== 'fa-tag') {
+                    this.selectIcon(style.icon);
+                    const colorInput = document.getElementById('catColor');
+                    if (colorInput) colorInput.value = style.color;
+                }
+            });
         }
     },
 
-    // 3. Load danh sách danh mục
+    selectIcon(icon) {
+        this.selectedIcon = icon;
+        const display = document.getElementById('selectedIconDisplay');
+        if (display) display.className = `fa-solid ${icon}`;
+        
+        const dropdown = document.getElementById('iconDropdown');
+        if (dropdown) dropdown.classList.add('d-none');
+    },
+
+    // --- QUẢN LÝ DANH MỤC ---
+
+    // Hàm gọi từ HTML: onclick="SettingsManager.createNewCategory()"
+    async createNewCategory() {
+        const user = Auth.getCurrentUser();
+        const nameInput = document.getElementById('catName');
+        const typeSelect = document.getElementById('catType');
+        const colorInput = document.getElementById('catColor');
+        
+        // Lấy nút bấm để xử lý hiệu ứng loading
+        const btn = document.querySelector('button[onclick*="createNewCategory"]');
+
+        const data = {
+            user_id: user.id,
+            name: nameInput.value.trim(),
+            type: typeSelect.value,
+            icon: this.selectedIcon,
+            color: colorInput.value
+        };
+
+        if (!data.name) {
+            alert("Toàn ơi, nhập tên danh mục đã nhé! 😊");
+            nameInput.focus();
+            return;
+        }
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        }
+
+        try {
+            const res = await API.createCategory(data);
+            if (res) {
+                // Reset form
+                nameInput.value = '';
+                this.selectIcon("fa-tag");
+                // Load lại danh sách mới
+                await this.loadCategories(user.id);
+            }
+        } catch (error) {
+            alert("Lỗi khi tạo: " + error.message);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = 'Tạo danh mục';
+            }
+        }
+    },
+
     async loadCategories(userId) {
         const container = document.getElementById('categoryList');
         if (!container) return;
 
         try {
             const categories = await API.getCategories(userId);
-            
             if (!categories || categories.length === 0) {
                 container.innerHTML = `
-                    <div class="text-center py-5 text-secondary">
-                        <i class="fa-solid fa-folder-open fs-2 mb-3 d-block opacity-25"></i>
-                        <p>Toàn chưa có danh mục nào. Hãy tạo cái đầu tiên nhé!</p>
+                    <div class="text-center py-5 opacity-50">
+                        <i class="fa-solid fa-folder-open fs-1 mb-3"></i>
+                        <p>Chưa có danh mục nào. Toàn thêm mới ở trên nhé!</p>
                     </div>`;
                 return;
             }
 
-            container.innerHTML = categories.map(cat => `
-                <div class="category-item d-flex justify-content-between align-items-center py-3 border-bottom px-2">
-                    <div class="d-flex align-items-center">
-                        <div class="icon-circle me-3" 
-                             style="background-color: ${cat.color}25; color: ${cat.color}; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                            <i class="fa-solid ${cat.icon || 'fa-tag'}"></i>
-                        </div>
-                        <div>
-                            <div class="fw-bold text-dark">${cat.name}</div>
-                            <div class="small text-secondary">
-                                ${cat.type === 'EXPENSE' ? 
-                                    '<span class="text-danger">● Chi phí</span>' : 
-                                    '<span class="text-success">● Thu nhập</span>'}
-                            </div>
-                        </div>
+            // Phân loại Thu nhập / Chi phí
+            const incomes = categories.filter(c => c.type === 'INCOME');
+            const expenses = categories.filter(c => c.type === 'EXPENSE');
+
+            const renderGroup = (list, title) => `
+                <div class="mb-5">
+                    <h6 class="text-secondary fw-bold mb-3" style="font-size: 0.85rem; letter-spacing: 1px;">
+                        ${title.toUpperCase()}
+                    </h6>
+                    <div class="category-group-container">
+                        ${list.map(cat => this.createRowHtml(cat)).join('')}
                     </div>
-                    <div class="actions">
-                        <button class="btn btn-sm btn-outline-danger border-0 rounded-circle" 
-                                onclick="SettingsManager.deleteCat(${cat.id}, '${cat.name}')">
-                            <i class="fa-solid fa-trash-can"></i>
-                        </button>
+                </div>`;
+
+            container.innerHTML = `
+                ${incomes.length > 0 ? renderGroup(incomes, "Các danh mục thu nhập") : ''}
+                ${expenses.length > 0 ? renderGroup(expenses, "Các danh mục chi phí") : ''}
+            `;
+        } catch (e) { 
+            console.error("Lỗi load danh mục:", e); 
+        }
+    },
+
+    createRowHtml(cat) {
+        // Tra cứu style từ category-data.js
+        const style = (typeof getCategoryStyle === 'function') 
+                      ? getCategoryStyle(cat.name) 
+                      : { icon: 'fa-tag', color: '#1FC06A' };
+
+        return `
+            <div class="category-item d-flex justify-content-between align-items-center p-3 mb-2 bg-white rounded-4 shadow-sm">
+                <div class="d-flex align-items-center">
+                    <div class="icon-circle me-3" style="background-color: ${style.color}; color: white;">
+                        <i class="fa-solid ${style.icon}"></i>
+                    </div>
+                    <div>
+                        <div class="fw-bold text-dark mb-0" style="font-size: 0.95rem;">${cat.name}</div>
+                        <div class="text-muted small" style="font-size: 0.8rem;">0 giao dịch</div>
                     </div>
                 </div>
-            `).join('');
-        } catch (e) { 
-            console.error("Lỗi load danh mục:", e);
-            container.innerHTML = '<div class="alert alert-danger">Không thể tải danh sách danh mục.</div>';
-        }
+                <div class="d-flex gap-1">
+                    <button class="btn-action"><i class="fa-solid fa-gear"></i></button>
+                    <button class="btn-action btn-delete" onclick="SettingsManager.deleteCat(${cat.id}, '${cat.name}')">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            </div>`;
     },
 
-    // 4. Xử lý lưu danh mục mới
-    setupForm(userId) {
-        const form = document.getElementById('addCategoryForm');
-        if (!form) return;
-
-        form.onsubmit = async (e) => {
-            e.preventDefault();
-            
-            const btn = form.querySelector('button[type="submit"]');
-            const originalText = btn.innerHTML;
-
-            const data = {
-                user_id: userId,
-                name: document.getElementById('catName').value.trim(),
-                icon: document.getElementById('catIcon').value,
-                color: document.getElementById('catColor').value,
-                type: document.getElementById('catType').value
-            };
-
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-
-            try {
-                const res = await API.createCategory(data);
-                if (res) {
-                    form.reset();
-                    document.getElementById('catColor').value = "#1FC06A";
-                    await this.loadCategories(userId);
-                }
-            } catch (err) {
-                alert("Lỗi: " + err.message);
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-            }
-        };
-    },
-
-    // 5. Xóa danh mục
-    async deleteCat(catId, catName) {
-        if (!confirm(`Toàn có chắc chắn muốn xóa danh mục "${catName}" không?`)) {
-            return;
-        }
-
+    async deleteCat(id, name) {
+        const catId = parseInt(id);
+        if (!confirm(`Bạn chắc chắn muốn xóa "${name}"?`)) return;
+        
         const user = Auth.getCurrentUser();
         try {
-            // Lưu ý: Đảm bảo BASE_URL đã được định nghĩa trong api.js
-            const response = await fetch(`${BASE_URL}/categories/${catId}?user_id=${user.id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
-            });
-
-            if (response.ok) {
+            const res = await API.deleteCategory(catId, user.id);
+            if (res) {
+                console.log("✅ Xóa thành công");
                 await this.loadCategories(user.id);
-            } else {
-                const err = await response.json();
-                alert(err.detail || "Không thể xóa danh mục này.");
             }
-        } catch (e) {
+        } catch (e) { 
             console.error("Lỗi xóa:", e);
-            alert("Lỗi kết nối server!");
+            alert("Không thể xóa: " + e.message); 
+        }
+    },
+
+    // --- QUẢN LÝ VÍ ---
+    async switchTab(tabName, element) {
+        const catSection = document.querySelector('.col-md-9 > div:first-child').parentElement; // div chứa category
+        const walSection = document.getElementById('section-wallet');
+        
+        // Đổi active sidebar
+        document.querySelectorAll('#settings-sidebar .list-group-item').forEach(el => el.classList.remove('active'));
+        element.classList.add('active');
+
+        if (tabName === 'wallet') {
+            document.querySelector('.card-custom').classList.add('d-none'); // Ẩn form tạo danh mục
+            document.querySelector('.card.shadow-sm.p-4').classList.add('d-none'); // Ẩn list danh mục
+            walSection.classList.remove('d-none');
+            await this.loadWallets(Auth.getCurrentUser().id);
+        } else {
+            location.reload(); // Cách nhanh nhất để quay lại tab danh mục
         }
     }
 };

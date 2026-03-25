@@ -1,13 +1,17 @@
 import uuid
 import os 
 import shutil
+import magic
 from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile, File
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import func, extract, and_
+from sqlalchemy.orm import joinedload
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
+from datetime import timezone
 from passlib.context import CryptContext
 from typing import List, Optional
 from fastapi import Query
@@ -71,24 +75,31 @@ async def general_exception_handler(request: Request, exc: Exception):
         content={"status": "critical", "message": "Lỗi hệ thống nghiêm trọng!"}
     )
 
-def get_current_user(token: str = Depends(schemas.oauth2_scheme), db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Phiên đăng nhập hết hạn",
-        headers={"WWW-Authenticate": "Bearer"},
+def create_tokens(username: str):
+    now = datetime.now(timezone.utc)
+    
+    access_token = jwt.encode(
+        {"sub": username, "exp": now + timedelta(minutes=30), "type": "access"}, 
+        SECRET_KEY, algorithm=ALGORITHM
     )
+    refresh_token = jwt.encode(
+        {"sub": username, "exp": now + timedelta(days=7), "type": "refresh"}, 
+        SECRET_KEY, algorithm=ALGORITHM
+    )
+    return access_token, refresh_token
+
+def get_current_user(token: str = Depends(schemas.oauth2_scheme), db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
+        if payload.get("type") != "access":
+            raise HTTPException(status_code=401, detail="Vui lòng sử dụng Access Token")
             
+        username: str = payload.get("sub")
         user = db.query(models.User).filter(models.User.username == username).first()
-        if user is None:
-            raise credentials_exception
+        if not user: raise JWTError()
         return user
     except JWTError:
-        raise credentials_exception
+        raise HTTPException(status_code=401, detail="Phiên đăng nhập không hợp lệ")
 
 
 
@@ -192,37 +203,54 @@ def get_categories(user_id: int, db: Session = Depends(get_db)):
         (models.Category.user_id == user_id) | (models.Category.user_id.is_(None))
     ).all()
 
+@app.delete("/categories/{cat_id}")
+def delete_category(cat_id: int, user_id: int, db: Session = Depends(get_db)):
+    db_category = db.query(models.Category).filter(
+        models.Category.id == cat_id, 
+        models.Category.user_id == user_id
+    ).first()
+    
+    if not db_category:
+        raise HTTPException(status_code=404, detail="Không tìm thấy danh mục để xóa")
+    
+    try:
+        db.delete(db_category)
+        db.commit()
+        return {"message": "Đã xóa danh mục thành công"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Không thể xóa vì danh mục này đang có giao dịch!")
+    
 # --- 4. BUDGETS ---
 @app.get("/budgets/user/{user_id}", response_model=List[schemas.BudgetResponse], tags=["Budgets"])
 def get_user_budgets(user_id: int, month: int, year: int, db: Session = Depends(get_db)):
-    budgets = db.query(models.Budget).filter(
-        models.Budget.user_id == user_id,
-        models.Budget.month == month,
-        models.Budget.year == year,
-        models.Budget.deleted_at == None 
-    ).all()
-
-    results = []
-    for b in budgets:
-        total_spent = db.query(func.sum(models.Transaction.amount)).join(models.Category).filter(
+    results = db.query(
+        models.Budget,
+        func.coalesce(func.sum(models.Transaction.amount), 0).label("actual_spent")
+    ).outerjoin(
+        models.Transaction, 
+        and_(
+            models.Transaction.category_id == models.Budget.category_id,
             models.Transaction.user_id == user_id,
-            models.Transaction.category_id == b.category_id,
-            models.Category.type == 'expense',
             extract('month', models.Transaction.transaction_date) == month,
             extract('year', models.Transaction.transaction_date) == year
-        ).scalar() or 0.0
+        )
+    ).filter(
+        models.Budget.user_id == user_id,
+        models.Budget.month == month,
+        models.Budget.year == year
+    ).group_by(models.Budget.id).options(joinedload(models.Budget.category)).all()
 
-        results.append({
-            "id": b.id,
-            "category_id": b.category_id,
-            "category_name": b.category.name, 
-            "amount_limit": float(b.amount),
-            "actual_spent": float(total_spent),
-            "month": b.month,
-            "year": b.year
-        })
-    
-    return results
+    return [
+        {
+            "id": row.Budget.id,
+            "category_name": row.Budget.category.name,
+            "amount_limit": float(row.Budget.amount),
+            "actual_spent": float(row.actual_spent),
+            "month": row.Budget.month,
+            "year": row.Budget.year
+        } for row in results
+    ]
 
 # --- 5. TRANSACTIONS ---
 @app.post("/transactions/", tags=["Transactions"])
@@ -242,44 +270,95 @@ def delete_transaction_api(
 @app.get("/transactions/search", tags=["Transactions"])
 def search_transactions(
     user_id: int,
-    page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
     category_id: Optional[int] = None,
     wallet_id: Optional[int] = None,
-    min_amount: Optional[float] = None,
-    max_amount: Optional[float] = None,
-    note: Optional[str] = Query(None, description="Tìm kiếm theo ghi chú"),
+    note: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    return service.get_filtered_transactions(
-        db, user_id, page=page, page_size=size,
-        category_id=category_id, wallet_id=wallet_id,
-        min_amount=min_amount, max_amount=max_amount, search_note=note
-    )
+    # 1. Bắt đầu câu truy vấn kèm JOIN
+    query = db.query(
+        models.Transaction,
+        models.Category.name.label("category_name"),
+        models.Category.type.label("category_type")
+    ).join(models.Category, models.Transaction.category_id == models.Category.id)
+
+    # 2. Lọc dữ liệu
+    query = query.filter(models.Transaction.user_id == user_id)
+    if category_id:
+        query = query.filter(models.Transaction.category_id == category_id)
+    if wallet_id:
+        query = query.filter(models.Transaction.wallet_id == wallet_id)
+    if note:
+        query = query.filter(models.Transaction.note.ilike(f"%{note}%"))
+
+    results = query.order_by(models.Transaction.transaction_date.desc()).all()
+
+    # 3. Format lại dữ liệu trả về cho Frontend dễ đọc
+    formatted_data = []
+    for tx, cat_name, cat_type in results:
+        data = {
+            "id": tx.id,
+            "amount": tx.amount,
+            "note": tx.note,
+            "transaction_date": tx.transaction_date,
+            "category_name": cat_name, # Trả về tên danh mục
+            "category_type": cat_type  # Trả về loại: 'EXPENSE' hoặc 'INCOME'
+        }
+        formatted_data.append(data)
+    
+    return formatted_data
 
 # --- 6. REPORTS ---
 @app.get("/reports/{user_id}", tags=["Reports"])
-def get_report(user_id: int, month: int, year: int, db: Session = Depends(get_db)):
-    return service.get_monthly_report(db, user_id, month, year)
+def get_monthly_report(user_id: int, month: int, year: int, db: Session = Depends(get_db)):
+    from datetime import date
+    import calendar
+    
+    last_day = calendar.monthrange(year, month)[1]
+    start_date = date(year, month, 1)
+    end_date = date(year, month, last_day)
+
+    transactions = db.query(models.Transaction).filter(
+        models.Transaction.user_id == user_id,
+        models.Transaction.transaction_date >= start_date,
+        models.Transaction.transaction_date <= end_date
+    ).all()
+
+    period_income = 0
+    period_expenses = 0
+
+    for tx in transactions:
+        if tx.category.type == "INCOME":
+            period_income += tx.amount
+        else:
+            period_expenses += tx.amount
+
+    return {
+        "period_income": period_income,
+        "period_expenses": period_expenses,
+        "period_change": period_income - period_expenses
+    }
 
 @app.post("/upload-receipt/{tx_id}")
 async def upload_receipt(tx_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    if not file.content_type.startswith("image/"):
-        raise BusinessException("Chỉ cho phép upload file ảnh!")
+    MAX_SIZE = 5 * 1024 * 1024
+    content = await file.read()
+    if len(content) > MAX_SIZE:
+        raise BusinessException("File quá lớn! Giới hạn 5MB")
 
-    file_extension = file.filename.split(".")[-1]
-    file_name = f"receipt_{tx_id}_{int(datetime.now().timestamp())}.{file_extension}"
+    mime = magic.from_buffer(content, mime=True)
+    if not mime.startswith("image/"):
+        raise BusinessException("Định dạng file không được hỗ trợ")
+
+    file_name = f"{uuid.uuid4()}.jpg"
     file_path = os.path.join(UPLOAD_DIR, file_name)
+    
+    with open(file_path, "wb") as f:
+        f.write(content)
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    tx = db.query(Transaction).filter(Transaction.id == tx_id).first()
-    if tx:
-        tx.image_url = f"/static/uploads/{file_name}"
-        db.commit()
-
-    return {"image_url": tx.image_url, "status": "success"}
+    db.query(Transaction).filter(Transaction.id == tx_id).update({"image_url": f"/static/uploads/{file_name}"})
+    db.commit()
+    return {"status": "success", "url": f"/static/uploads/{file_name}"}
 
 @app.get("/reports/ai-advice/{user_id}", tags=["Reports"])
 def get_smart_advice(user_id: int, month: int, year: int, db: Session = Depends(get_db)):

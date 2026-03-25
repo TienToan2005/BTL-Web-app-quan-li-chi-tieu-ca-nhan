@@ -4,39 +4,44 @@ const API = {
     async fetchWithAuth(endpoint, options = {}) {
         let token = localStorage.getItem('access_token');
         
-        const headers = {
-            'Content-Type': 'application/json',
-            ...options.headers,
-        };
+        options.headers = options.headers || {};
+
+        if (!(options.body instanceof FormData)) {
+            options.headers['Content-Type'] = 'application/json';
+        }
 
         if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
+            options.headers['Authorization'] = `Bearer ${token}`;
         }
 
-        let response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
+        try {
+            let response = await fetch(`${BASE_URL}${endpoint}`, options);
 
-        if (response.status === 401) {
-            const refreshToken = localStorage.getItem('refresh_token');
-            if (refreshToken) {
-                const refreshData = await this.refreshToken(refreshToken);
-                if (refreshData.success) {
-                    headers['Authorization'] = `Bearer ${refreshData.access_token}`;
-                    response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
-                } else {
-                    this.logout();
-                    return;
+            if (response.status === 401) {
+                console.warn("Token hết hạn, đang thử refresh...");
+                const refreshToken = localStorage.getItem('refresh_token');
+                if (refreshToken) {
+                    const refreshData = await this.refreshToken(refreshToken);
+                    if (refreshData.success) {
+                        options.headers['Authorization'] = `Bearer ${refreshData.access_token}`;
+                        response = await fetch(`${BASE_URL}${endpoint}`, options);
+                    } else {
+                        this.logout();
+                        return null;
+                    }
                 }
-            } else {
-                this.logout();
-                return;
             }
-        }
 
-        const data = await response.json();
-        if (!response.ok) {
-            throw new Error(data.message || data.detail || "Đã có lỗi xảy ra");
+            const data = await response.json();
+            if (!response.ok) {
+                console.error(`API Error (${endpoint}):`, data);
+                throw new Error(data.message || data.detail || "Đã có lỗi xảy ra");
+            }
+            return data;
+        } catch (error) {
+            console.error("Fetch error:", error);
+            throw error;
         }
-        return data;
     },
 
     async login(username, password) {
@@ -96,12 +101,14 @@ const API = {
             body: JSON.stringify(data)
         });
     },
+
     async createCategory(data) {
-            return this.fetchWithAuth('/categories/', {
-                method: 'POST',
-                body: JSON.stringify(data)
-            });
-        },
+        data.user_id = parseInt(data.user_id);
+        return this.fetchWithAuth('/categories/', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    },
     async deleteCategory(catId, userId) {
         return this.fetchWithAuth(`/categories/${catId}?user_id=${userId}`, {
             method: 'DELETE'
@@ -145,11 +152,15 @@ const API = {
     },
 
     async getMonthlyReport(userId, month, year) {
-        return this.fetchWithAuth(`/reports/${userId}?month=${month}&year=${year}`);
+        const m = parseInt(month);
+        const y = parseInt(year);
+        return this.fetchWithAuth(`/reports/${userId}?month=${m}&year=${y}`);
     },
 
     async getAIAdvice(userId, month, year) {
-        return this.fetchWithAuth(`/reports/ai-advice/${userId}?month=${month}&year=${year}`);
+        const m = parseInt(month);
+        const y = parseInt(year);
+        return this.fetchWithAuth(`/reports/ai-advice/${userId}?month=${m}&year=${y}`);
     },
 
     async uploadReceipt(txId, file) {

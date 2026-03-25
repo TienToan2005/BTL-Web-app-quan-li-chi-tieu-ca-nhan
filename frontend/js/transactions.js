@@ -1,16 +1,19 @@
+/**
+ * Transaction Manager - Quản lý lịch sử giao dịch cho Toàn
+ */
 const TransactionManager = {
     async init() {
         const user = Auth.getCurrentUser();
-        // Kiểm tra xem đã lấy được ID chưa, nếu không thì ép kiểu về 1 để test
-        const userId = user.id || localStorage.getItem('user_id') || 1;
-        
-        // Cập nhật tên hiển thị
-        if (user.username) {
-            document.getElementById('userDisplay').innerText = user.username;
+        if (!user || !user.id) {
+            window.location.href = 'login.html';
+            return;
         }
 
-        await this.loadFilters(userId);
-        await this.loadTransactions(userId);
+        const userDisplay = document.getElementById('userDisplay');
+        if (userDisplay) userDisplay.innerText = user.username;
+
+        await this.loadFilters(user.id);
+        await this.loadTransactions(); // Gọi hàm này để lấy user từ Auth bên trong
     },
 
     async loadFilters(userId) {
@@ -20,19 +23,16 @@ const TransactionManager = {
                 API.getCategories(userId)
             ]);
 
-            // Xử lý đổ dữ liệu vào Ví
             const walletSelects = ['filterWallet', 'tWallet'];
             walletSelects.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
                     const defaultText = (id === 'filterWallet') ? 'Tất cả ví' : 'Chọn ví...';
-                    // Dùng dấu = để ghi đè, tránh bị lặp lại dữ liệu khi load lại
                     el.innerHTML = `<option value="">${defaultText}</option>` + 
                         wallets.map(w => `<option value="${w.id}">${w.name}</option>`).join('');
                 }
             });
 
-            // Xử lý đổ dữ liệu vào Danh mục
             const catSelects = ['filterCategory', 'tCategory'];
             catSelects.forEach(id => {
                 const el = document.getElementById(id);
@@ -47,68 +47,90 @@ const TransactionManager = {
         }
     },
 
-    async loadTransactions(userId) {
-        const query = { user_id: userId };
+    async loadTransactions() {
+        const user = Auth.getCurrentUser();
+        const query = { user_id: user.id };
 
-        // Lấy giá trị từ các ô lọc
         const note = document.getElementById('searchNote')?.value;
         const walletId = document.getElementById('filterWallet')?.value;
         const categoryId = document.getElementById('filterCategory')?.value;
 
-        // CHỈ THÊM VÀO QUERY NẾU CÓ GIÁ TRỊ (KHÁC RỖNG)
         if (note) query.note = note;
         if (walletId) query.wallet_id = walletId;
         if (categoryId) query.category_id = categoryId;
 
         try {
-            // Gọi API với query đã được dọn dẹp (không còn chuỗi rỗng "")
             const data = await API.searchTransactions(query);
-            console.log("Dữ liệu trả về:", data);
-            
             const finalItems = Array.isArray(data) ? data : (data.items || []);
             this.renderList(finalItems);
         } catch (e) { 
-            console.error("Lỗi search:", e); 
+            console.error("Lỗi tải giao dịch:", e); 
         }
     },
 
+    // --- HÀM RENDER TỐI ƯU GIAO DIỆN SPENDEE ---
     renderList(items) {
         const container = document.getElementById('transaction-list');
         if (!container) return;
         
         if (!items || items.length === 0) {
-            container.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-secondary">Chưa có giao dịch nào.</td></tr>';
+            container.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-secondary">Chưa có giao dịch nào phù hợp.</td></tr>';
             return;
         }
 
-        container.innerHTML = items.map(t => `
-            <tr>
-                <td class="ps-4 small text-secondary">${new Date(t.transaction_date).toLocaleDateString('vi-VN')}</td>
-                <td><span class="badge bg-light text-dark border fw-medium">${t.category_name || 'Khác'}</span></td>
-                <td class="text-dark fw-medium">${t.note || '---'}</td>
-                <td class="text-end pe-4 fw-bold ${t.category_type === 'expense' ? 'text-danger' : 'text-success'}">
-                    ${t.category_type === 'expense' ? '-' : '+'}${Utils.formatMoney(t.amount)}
-                </td>
-            </tr>
-        `).join('');
-    },
+        container.innerHTML = items.map(t => {
+            // 1. Lấy cấu hình Style (Icon & Màu) từ file category-data.js
+            // Nếu không có hàm getCategoryStyle (chưa nạp file), dùng mặc định
+            const style = (typeof getCategoryStyle === 'function') 
+                          ? getCategoryStyle(t.category_name) 
+                          : { icon: 'fa-tag', color: '#64748b' };
 
-    openAddModal() {
-        const modalElement = document.getElementById('addTransactionModal');
-        const modal = new bootstrap.Modal(modalElement);
-        modal.show();
+            // 2. Kiểm tra loại Thu hay Chi
+            const type = t.category_type ? t.category_type.toUpperCase() : 'EXPENSE';
+            const isExpense = (type === 'EXPENSE' || type === 'OUT');
+            
+            return `
+                <tr class="align-middle category-item cursor-pointer">
+                    <td class="ps-4">
+                        <div class="text-secondary small">${Utils.formatDate(t.transaction_date)}</div>
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="icon-circle me-3" style="background-color: ${style.color}; color: white; width: 35px; height: 35px; font-size: 0.9rem;">
+                                <i class="fa-solid ${style.icon}"></i>
+                            </div>
+                            <span class="fw-semibold text-dark">${t.category_name || 'Khác'}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="text-muted small text-truncate" style="max-width: 200px;">
+                            ${t.note || '<span class="opacity-50">---</span>'}
+                        </div>
+                    </td>
+                    <td class="text-end pe-4">
+                        <span class="fw-bold ${isExpense ? 'text-danger' : 'text-success'}">
+                            ${isExpense ? '-' : '+'}${Utils.formatMoney(t.amount)}
+                        </span>
+                    </td>
+                </tr>
+            `;
+        }).join('');
     }
 };
 
-// Lắng nghe sự kiện Submit Form
+// 4. Xử lý sự kiện Filter (Lọc) khi nhấn nút hoặc Enter
+document.getElementById('searchNote')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') TransactionManager.loadTransactions();
+});
+
+// 5. Thêm giao dịch mới
 document.getElementById('addTransactionForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const user = Auth.getCurrentUser();
-    const userId = user.id || 1;
     const btn = e.target.querySelector('button[type="submit"]');
 
     const data = {
-        user_id: userId,
+        user_id: user.id,
         wallet_id: parseInt(document.getElementById('tWallet').value),
         category_id: parseInt(document.getElementById('tCategory').value),
         amount: parseFloat(document.getElementById('tAmount').value),
@@ -120,19 +142,20 @@ document.getElementById('addTransactionForm')?.addEventListener('submit', async 
     try {
         const res = await API.createTransaction(data);
         if (res) {
-            const modalInstance = bootstrap.Modal.getInstance(document.getElementById('addTransactionModal'));
+            const modalEl = document.getElementById('addTransactionModal');
+            const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
             modalInstance.hide();
+            
             e.target.reset();
-            TransactionManager.loadTransactions(userId);
+            await TransactionManager.loadTransactions();
         }
     } catch (e) { 
-        alert("Lỗi khi lưu giao dịch: " + e.message); 
+        alert("Lỗi: " + e.message); 
     } finally { 
         btn.disabled = false; 
     }
 });
 
-// Khởi chạy
 document.addEventListener('DOMContentLoaded', () => {
     TransactionManager.init();
 });
