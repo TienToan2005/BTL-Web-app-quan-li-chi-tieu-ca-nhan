@@ -56,9 +56,28 @@
                 <button class="btn btn-outline-primary fw-bold border-2 shadow-sm rounded-3 px-3" onclick="TransactionManager.openTransferModal()">
                     <i class="fa-solid fa-right-left me-2"></i> Chuyển tiền
                 </button>
+
                 <button class="btn btn-success fw-bold border-0 shadow-sm rounded-3 px-3" onclick="TransactionManager.openAddModal()" style="background-color: #1FC06A;">
                     <i class="fa-solid fa-plus me-2"></i> Thêm giao dịch
                 </button>
+
+                <div class="dropdown">
+                    <button class="btn btn-light fw-bold border-2 shadow-sm rounded-3 px-3 text-secondary" data-bs-toggle="dropdown">
+                        <i class="fa-solid fa-file-export me-2"></i> Xuất file
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2 rounded-3">
+                        <li>
+                            <a class="dropdown-item py-2" href="#" onclick="TransactionManager.handleExport('excel')">
+                                <i class="fa-solid fa-file-excel me-2 text-success"></i> Xuất Excel (.xlsx)
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item py-2" href="#" onclick="TransactionManager.handleExport('pdf')">
+                                <i class="fa-solid fa-file-pdf me-2 text-danger"></i> Xuất PDF (.pdf)
+                            </a>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </div>
 

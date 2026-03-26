@@ -36,3 +36,29 @@ class AIService:
         except Exception as e:
             print(f"❌ Lỗi Groq: {str(e)}")
             return "AI đang bận tí,bạn đợi lát nhé! 😴"
+        
+    def chat_with_toan(self, user_message: str, current_balance: float, monthly_spent: float):
+        system_prompt = f"""
+        Bạn là Spendee AI - Trợ lý tài chính cá nhân của Tôi.
+        Số dư hiện tại của Tôi: {current_balance:,.0f}đ.
+        Tháng này Tôi đã tiêu: {monthly_spent:,.0f}đ.
+        
+        Nhiệm vụ: Trả lời câu hỏi của Tôi một cách thông minh, ngắn gọn và vui vẻ. 
+        Nếu Tôi hỏi có nên mua gì đó không, hãy dựa vào số dư và chi tiêu để khuyên bảo có tâm.
+        Luôn dùng emoji và xưng thân thiện.
+        """
+
+        try:
+            completion = self.client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                temperature=0.8,
+                max_tokens=250,
+            )
+            return completion.choices[0].message.content
+        except Exception as e:
+            print(f"❌ Lỗi Chat Groq: {str(e)}")
+            return "AI đang 'lag' tí, hỏi lại sau nhé! 😅"

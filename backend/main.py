@@ -2,7 +2,11 @@ import uuid
 import os 
 import shutil
 import magic
-from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile, File ,Body,Query
+import pandas as pd
+from fastapi.responses import StreamingResponse
+import io
+from reportlab.pdfgen import canvas
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, extract, and_
@@ -20,6 +24,15 @@ from app.models import Transaction
 from app.services import TransactionService
 from app.ai_service import AIService
 from app.exceptions import BusinessException
+from datetime import datetime
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 load_dotenv()
 
@@ -402,6 +415,97 @@ def transfer_money(request: schemas.TransferRequest, db: Session = Depends(get_d
     return {"message": "Chuyển tiền thành công! 💸"}
 
 # --- 6. REPORTS ---
+@app.get("/reports/export")
+async def export_report(
+    format: str, 
+    user_id: int = Query(...), 
+    db: Session = Depends(get_db)
+):
+    transactions = db.query(models.Transaction).join(models.Category).filter(
+        models.Transaction.user_id == user_id,
+        models.Transaction.deleted_at == None
+    ).order_by(models.Transaction.transaction_date.desc()).all()
+
+    if not transactions:
+        raise HTTPException(status_code=404, detail="Không có dữ liệu để xuất báo cáo")
+
+    data_list = []
+    for t in transactions:
+        data_list.append({
+            "Ngày": t.transaction_date.strftime("%d/%m/%Y") if t.transaction_date else "---",
+            "Hạng mục": t.category.name,
+            "Loại": "Thu nhập" if t.category.type == "INCOME" else "Chi tiêu",
+            "Ví": t.wallet.name if t.wallet else "---",
+            "Số tiền": float(t.amount),
+            "Ghi chú": t.note or ""
+        })
+
+    if format == "excel":
+        df = pd.DataFrame(data_list)
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Báo cáo Spendee')
+            
+            worksheet = writer.sheets['Báo cáo Spendee']
+            for idx, col in enumerate(df.columns):
+                max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
+                worksheet.column_dimensions[chr(65 + idx)].width = max_len
+                
+        output.seek(0)
+        filename = f"Bao_cao_Spendee_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        return StreamingResponse(
+            output, 
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+
+    elif format == "pdf":
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+        elements = []
+        styles = getSampleStyleSheet()
+        title = Paragraph(f"<b>BÁO CÁO CHI TIÊU CHI TIẾT</b>", styles['Title'])
+        elements.append(title)
+        elements.append(Paragraph(f"<center>Người dùng ID: {user_id} | Ngày xuất: {datetime.now().strftime('%d/%m/%Y %H:%M')}</center>", styles['Normal']))
+        elements.append(Spacer(1, 20))
+
+        table_data = [["Ngày", "Hạng mục", "Loại", "Ví", "Số tiền (đ)", "Ghi chú"]]
+        
+        for d in data_list:
+            money_fmt = "{:,.0f}".format(d["Số tiền"])
+            table_data.append([d["Ngày"], d["Hạng mục"], d["Loại"], d["Ví"], money_fmt, d["Ghi chú"]])
+
+        t = Table(table_data, colWidths=[70, 90, 60, 70, 80, 130])
+        
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.hexColor("#1FC06A")),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), 
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ]))
+
+        elements.append(t)
+        
+        elements.append(Spacer(1, 30))
+        elements.append(Paragraph("<i>Cảm ơn bạn đã sử dụng Spendee Pro - Cố vấn tài chính thông minh của bạn.</i>", styles['Italic']))
+
+        doc.build(elements)
+        buffer.seek(0)
+        filename = f"Bao_cao_Spendee_{datetime.now().strftime('%Y%m%d')}.pdf"
+        return StreamingResponse(
+            buffer, 
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+
+    return {"error": "Định dạng không hỗ trợ"}
+    
 @app.get("/reports/{user_id}", tags=["Reports"])
 def get_monthly_report(user_id: int, month: int, year: int, db: Session = Depends(get_db)):
     from datetime import date
@@ -468,7 +572,7 @@ def get_monthly_report(user_id: int, month: int, year: int, db: Session = Depend
             } for row in income_details
         ]
     }
-
+   
 @app.post("/upload-receipt/{tx_id}")
 async def upload_receipt(tx_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
     MAX_SIZE = 5 * 1024 * 1024
@@ -523,32 +627,29 @@ def get_smart_advice(user_id: int, month: int, year: int, db: Session = Depends(
         print(f"Lỗi gọi AI: {e}")
         return {"advice": "AI đang bận một chút, Bạn đợi tí nhé! 😴"}
 
-@app.post("/ai/chat", tags=["AI Pro"])
-def ai_chat_consultant(user_id: int, message: str, db: Session = Depends(get_db)):
+@app.post("/ai/chat")
+async def ai_chat(request: Request, db: Session = Depends(get_db)):
     try:
+        data = await request.json()
+        u_id = data.get("user_id")
+        msg = data.get("message")
+        
+        print(f"🚀 Spendee AI nhận lệnh từ bạn: {msg}")
+
         wallets = db.query(models.Wallet).filter(
-            models.Wallet.user_id == user_id,
+            models.Wallet.user_id == u_id,
             models.Wallet.deleted_at == None
         ).all()
-        
         total_balance = sum(w.balance for w in wallets)
+
+        answer = ai_service.chat_with_toan(
+            user_message=msg, 
+            current_balance=total_balance, 
+            monthly_spent=500000
+        )
         
-        context_prompt = f"""
-        Bạn là Spendee AI - Cố vấn tài chính cá nhân của Tôi.
-        Bối cảnh: Tôi đang có tổng số dư khả dụng là {total_balance:,.0f} VNĐ.
-        
-        Hãy trả lời câu hỏi của Tôi một cách thực tế và thẳng thắn:
-        Câu hỏi: "{message}"
-        
-        QUY TẮC:
-        - Nếu Tôi hỏi mua món đồ vượt quá 30% số dư hiện tại, hãy khuyên Tôi cân nhắc kỹ hoặc từ chối.
-        - Xưng hô thân thiện, dùng emoji.
-        - Trả lời cực ngắn gọn (dưới 100 từ).
-        """
-        
-        reply = ai_service.get_financial_advice(context_prompt)
-        return {"reply": reply}
-        
+        return {"answer": answer}
+
     except Exception as e:
-        print(f"❌ AI Error (Chat): {e}")
-        return {"reply": "Mình đang bận tính toán ngân sách một chút, Bạn hỏi lại sau nhé! 😅"}
+        print(f"❌ Lỗi xử lý AI: {e}")
+        return {"answer": "Mình đang bận tính toán ngân sách một chút, bạn hỏi lại sau nhé! 😅"}

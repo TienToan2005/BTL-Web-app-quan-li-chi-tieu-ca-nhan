@@ -105,3 +105,7 @@ class MonthlyReportResponse(BaseModel):
     category: str
     type: str
     total: float
+    
+class ChatRequest(BaseModel):
+    user_id: int
+    message: str

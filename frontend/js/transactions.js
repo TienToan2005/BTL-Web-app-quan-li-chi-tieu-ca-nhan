@@ -236,6 +236,37 @@ const TransactionManager = {
             } catch (e) { Swal.fire('Lỗi', e.message, 'error'); }
             finally { btn.disabled = false; }
         };
+    },  
+
+    async handleExport(format) {
+        const user = Auth.getCurrentUser();
+        if (!user || !user.id) return;
+
+        const cleanUserId = parseInt(user.id);
+        
+        const exportUrl = `http://127.0.0.1:8000/reports/export?format=${format}&user_id=${cleanUserId}`;
+
+        Swal.fire({
+            title: 'Đang chuẩn bị tệp...',
+            text: `Hệ thống đang xuất báo cáo ${format.toUpperCase()}`,
+            icon: 'info',
+            showConfirmButton: false,
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        try {
+            setTimeout(() => {
+                window.open(exportUrl, '_blank');
+                Swal.close();
+            }, 800);
+            
+        } catch (e) {
+            console.error("Lỗi xuất báo cáo:", e);
+            Swal.fire('Lỗi', 'Không thể kết nối đến máy chủ xuất báo cáo.', 'error');
+        }
     }
 };
 

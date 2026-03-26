@@ -164,12 +164,20 @@ const SettingsManager = {
         const form = document.getElementById('addWalletFormHorizontal');
         if (!form || form.dataset.init) return;
         form.dataset.init = "true";
+
+        const balanceInput = document.getElementById('wBalanceHorizontal');
+        if (balanceInput) {
+            balanceInput.addEventListener('input', function() {
+                Utils.formatInputMoney(this);
+            });
+        }
         form.onsubmit = async (e) => {
             e.preventDefault();
+            const rawBalance = Utils.getRawMoney(document.getElementById('wBalanceHorizontal').value);
             const data = {
                 user_id: userId,
                 name: document.getElementById('wNameHorizontal').value.trim(),
-                balance: parseFloat(document.getElementById('wBalanceHorizontal').value) || 0,
+                balance: rawBalance,
                 icon: this.selectedWalletIcon,
                 color: document.getElementById('walletColor').value
             };
@@ -177,6 +185,7 @@ const SettingsManager = {
                 await API.createWallet(data);
                 form.reset();
                 this.selectWalletIcon("fa-wallet");
+                document.getElementById('selectedWalletIconDisplay').className = `fa-solid fa-wallet`;
                 await this.loadWallets(userId);
             } catch (e) { alert(e.message); }
         };

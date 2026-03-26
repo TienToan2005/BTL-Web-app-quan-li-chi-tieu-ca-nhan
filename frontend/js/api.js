@@ -197,5 +197,38 @@ const API = {
             body: formData
         });
         return response.json();
+    },
+    async askAIQuestion(userId, message) {
+        const url = `${BASE_URL}/ai/chat`;
+        const payload = {
+            user_id: parseInt(userId),
+            message: String(message)
+        };
+
+        console.log("📤 Gửi JSON thô:", JSON.stringify(payload));
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json', // Bắt buộc phải có
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(payload) // PHẢI dùng JSON.stringify ở đây
+            });
+
+            if (response.status === 422) {
+                const errorDetail = await response.json();
+                console.error("❌ Backend chê dữ liệu:", errorDetail);
+                throw new Error("Dữ liệu không đúng định dạng!");
+            }
+
+            if (!response.ok) throw new Error("AI đang bận tí!");
+            
+            return await response.json();
+        } catch (error) {
+            console.error("💥 Lỗi Fetch:", error);
+            throw error;
+        }
     }
 };
