@@ -1,120 +1,210 @@
-/**
- * Spendee Dashboard Manager - Toàn's Financial Overview
- */
-const Dashboard = {
-    // Khởi tạo Dashboard
-    async init() {
-        console.log("🚀 Dashboard đang khởi tạo...");
-        
-        // 1. Lấy thông tin user từ Utils
-        const user = {
-            id: localStorage.getItem('user_id'),
-            username: localStorage.getItem('username')
-        };
+let incomeChartInstance = null;
+let expenseChartInstance = null;
+let viewDate = new Date(); 
 
-        if (!user.id) {
-            console.error("❌ Không tìm thấy user_id. Chuyển hướng về login...");
+const Dashboard = {
+    async init() {
+        console.log("🚀 Dashboard AI Pro đang khởi tạo...");
+        
+        const userId = localStorage.getItem('user_id');
+        if (!userId) {
             window.location.href = 'login.html';
             return;
         }
 
-        // 2. Hiển thị tên user và tháng hiện tại
+        const username = localStorage.getItem('username');
         const userDisplay = document.getElementById('userDisplay');
-        if (userDisplay) userDisplay.innerText = user.username || "Tài khoản";
+        if (userDisplay) userDisplay.innerText = username || "Tài khoản";
 
-        const period = Utils.getCurrentPeriod();
+        await this.loadData();
+    },
+
+    async loadData() {
+        const userId = localStorage.getItem('user_id');
+        const month = viewDate.getMonth() + 1;
+        const year = viewDate.getFullYear();
+
         const monthYearText = document.getElementById('currentMonthYear');
         if (monthYearText) {
-            monthYearText.innerText = `${Utils.getMonthName(period.month)} ${period.year}`;
+            const monthName = viewDate.toLocaleString('en-US', { month: 'long' });
+            monthYearText.innerText = `${monthName} ${year}`;
         }
 
-        // 3. Hiển thị trạng thái chờ cho AI
         const aiTextElem = document.getElementById('aiAdviceText');
         if (aiTextElem) {
-            aiTextElem.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Gemini đang phân tích ví tiền của Toàn...';
+            aiTextElem.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Spendee AI đang phân tích dữ liệu tháng ' + month + '...';
         }
 
         try {
-            // 4. Gọi tất cả API cùng lúc để tối ưu tốc độ nạp trang
             const [wallets, report, aiData] = await Promise.allSettled([
-                API.getWallets(user.id),
-                API.getMonthlyReport(user.id, period.month, period.year),
-                API.getAIAdvice(user.id, period.month, period.year)
+                API.getWallets(userId),
+                API.getMonthlyReport(userId, month, year),
+                API.getAIAdvice(userId, month, year)
             ]);
 
-            // Xử lý dữ liệu Ví và Báo cáo
             const walletData = wallets.status === 'fulfilled' ? wallets.value : [];
-            const reportData = report.status === 'fulfilled' ? report.value : { period_income: 0, period_expenses: 0, period_change: 0 };
+            const reportData = report.status === 'fulfilled' ? report.value : { 
+                period_income: 0, period_expenses: 0, period_change: 0, item_expenses: [], item_incomes: [] 
+            };
 
-            console.log("✅ Dữ liệu nạp thành công:", { walletData, reportData });
-
-            // 5. Cập nhật các thẻ con số (Total Balance, Income, Expenses...)
             this.updateCards(walletData, reportData);
 
-            // 6. Xử lý hiển thị lời khuyên từ Gemini AI
-            if (aiTextElem) {
-                if (aiData.status === 'fulfilled' && aiData.value && aiData.value.advice) {
-                    // Tạo hiệu ứng gõ chữ cho "ngầu"
-                    this.typeWriter(aiTextElem, aiData.value.advice);
-                } else {
-                    aiTextElem.innerText = "Toàn ơi, hãy thêm vài giao dịch chi tiêu để Gemini có dữ liệu tư vấn tài chính cho Toàn nhé! 🤖";
-                }
+            if (reportData.item_incomes && reportData.item_incomes.length > 0) {
+                this.renderIncomeChart(reportData.item_incomes);
+            } else {
+                this.renderNoDataChart('incomeChart', 'incomeLegend');
             }
 
+            if (reportData.item_expenses && reportData.item_expenses.length > 0) {
+                this.renderExpenseChart(reportData.item_expenses);
+            } else {
+                this.renderNoDataChart('expenseChart', 'expenseLegend');
+            }
+
+            if (aiTextElem) {
+                if (aiData.status === 'fulfilled' && aiData.value && aiData.value.advice) {
+                    this.typeWriter(aiTextElem, aiData.value.advice);
+                } else {
+                    aiTextElem.innerText = "Toàn ơi, tháng " + month + " chưa thấy khoản thu chi nào, cứ phát huy tinh thần tiết kiệm nhé! 💸";
+                }
+            }
         } catch (error) {
-            console.error("❌ Lỗi thực thi Dashboard:", error);
+            console.error("❌ Lỗi load dữ liệu Dashboard:", error);
         }
     },
 
-    // Hàm tạo hiệu ứng gõ chữ từng ký tự
+    async changeMonth(offset) {
+        viewDate.setMonth(viewDate.getMonth() + offset);
+        await this.loadData();
+    },
+
+    renderIncomeChart(items) {
+        const canvas = document.getElementById('incomeChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (incomeChartInstance) incomeChartInstance.destroy();
+
+        const defaultColor = '#1FC06A';
+
+        incomeChartInstance = this.createDoughnutChart(ctx, items, 'Income Structure', defaultColor);
+        this.generateCustomLegend(items, 'incomeLegend', defaultColor);
+    },
+
+    renderExpenseChart(items) {
+        const canvas = document.getElementById('expenseChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (expenseChartInstance) expenseChartInstance.destroy();
+
+        const defaultColor = '#fab005';
+
+        expenseChartInstance = this.createDoughnutChart(ctx, items, 'Expense Structure', defaultColor);
+        this.generateCustomLegend(items, 'expenseLegend', defaultColor);
+    },
+
+    createDoughnutChart(ctx, items, labelTitle, defaultColor) {
+        const labels = items.map(item => item.category_name);
+        const data = items.map(item => item.actual_spent || item.total);
+        const colors = items.map(item => item.category_color || defaultColor);
+
+        return new Chart(ctx, {
+            type: 'doughnut', 
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: colors,
+                    borderWidth: 0,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => ` ${context.label}: ${Utils.formatMoney(context.raw)}`
+                        }
+                    }
+                },
+                cutout: '70%'
+            }
+        });
+    },
+
+    generateCustomLegend(items, legendId, defaultColor) {
+        const legendElem = document.getElementById(legendId);
+        if (!legendElem) return;
+
+        legendElem.innerHTML = items.map(item => {
+            const color = item.category_color || defaultColor;
+            const amount = item.actual_spent || item.total || 0;
+            return `
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: ${color};"></div>
+                    <span class="me-2 text-darkfw-bold">${item.category_name}</span>
+                    <span class="text-secondary small">(${Utils.formatMoney(amount)})</span>
+                </div>`;
+        }).join('');
+    },
+
+    renderNoDataChart(canvasId, legendId) {
+        const canvas = document.getElementById(canvasId);
+        const legendElem = document.getElementById(legendId);
+        if (legendElem) legendElem.innerHTML = '';
+        
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        
+        if (canvasId === 'incomeChart' && incomeChartInstance) incomeChartInstance.destroy();
+        if (canvasId === 'expenseChart' && expenseChartInstance) expenseChartInstance.destroy();
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Trống'],
+                datasets: [{ data: [1], backgroundColor: ['#e9ecef'], borderWidth: 0 }]
+            },
+            options: { 
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                cutout: '70%'
+            }
+        });
+    },
+
     typeWriter(element, text, i = 0) {
-        if (i === 0) element.innerHTML = ''; // Xóa trắng trước khi gõ
+        if (i === 0) element.innerHTML = ''; 
         if (i < text.length) {
             element.innerHTML += text.charAt(i);
-            setTimeout(() => this.typeWriter(element, text, i + 1), 30); // Tốc độ 30ms mỗi chữ
+            setTimeout(() => this.typeWriter(element, text, i + 1), 25);
         }
     },
 
-    // Cập nhật các Card hiển thị tiền tệ
     updateCards(wallets, report) {
-        // Tính tổng số dư tất cả các ví
         const total = Array.isArray(wallets) ? wallets.reduce((sum, w) => sum + parseFloat(w.balance || 0), 0) : 0;
         
-        const totalElem = document.getElementById('totalBalance');
-        const incElem = document.getElementById('periodIncome');
-        const expElem = document.getElementById('periodExpenses');
-        const chgElem = document.getElementById('periodChange');
+        const elements = {
+            total: document.getElementById('totalBalance'),
+            income: document.getElementById('periodIncome'),
+            expense: document.getElementById('periodExpenses'),
+            change: document.getElementById('periodChange')
+        };
 
-        if (totalElem) totalElem.innerText = Utils.formatMoney(total);
+        if (elements.total) elements.total.innerText = Utils.formatMoney(total);
+        if (elements.income) elements.income.innerText = Utils.formatMoney(report.period_income || 0);
+        if (elements.expense) elements.expense.innerText = Utils.formatMoney(report.period_expenses || 0);
         
-        const income = report.period_income || 0;
-        const expense = report.period_expenses || 0;
-        const change = report.period_change !== undefined ? report.period_change : (income - expense);
-
-        if (incElem) incElem.innerText = Utils.formatMoney(income);
-        if (expElem) expElem.innerText = Utils.formatMoney(expense);
-        
-        // Xử lý màu sắc cho phần Thay đổi số dư (Tăng xanh, Giảm đỏ)
-        if (chgElem) {
+        const change = report.period_change || 0;
+        if (elements.change) {
             const sign = change > 0 ? "+" : "";
-            chgElem.innerText = sign + Utils.formatMoney(change);
-            chgElem.className = change >= 0 ? "text-success fw-bold mb-0" : "text-danger fw-bold mb-0";
+            elements.change.innerText = sign + Utils.formatMoney(change);
+            elements.change.className = change >= 0 ? "text-success fw-bold mb-0" : "text-danger fw-bold mb-0";
         }
-    },
-
-    // Chuyển sang tháng trước
-    prevMonth() {
-        // Toàn có thể thêm logic trừ tháng ở đây và gọi lại init()
-        console.log("Tính năng chuyển tháng đang phát triển...");
-    },
-
-    // Chuyển sang tháng sau
-    nextMonth() {
-        console.log("Tính năng chuyển tháng đang phát triển...");
     }
 };
 
-// Khởi chạy khi toàn bộ HTML đã load xong
-document.addEventListener('DOMContentLoaded', () => {
-    Dashboard.init();
-});
+document.addEventListener('DOMContentLoaded', () => Dashboard.init());

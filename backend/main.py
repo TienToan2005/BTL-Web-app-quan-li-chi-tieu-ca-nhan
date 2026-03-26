@@ -2,30 +2,26 @@ import uuid
 import os 
 import shutil
 import magic
-from app.ai_service import AIService
 from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile, File
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, extract, and_
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import Session, joinedload
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
-from jose import jwt, JWTError
-from datetime import timezone
-from passlib.context import CryptContext
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from datetime import datetime
 from typing import List, Optional
-from fastapi import Query
-from sqlalchemy import func, extract
 from dotenv import load_dotenv
-load_dotenv()
-
+from sqlalchemy import func
 from database import get_db, engine
-from app import models, schemas
+from app import models, schemas, services
 from app.models import Transaction
 from app.services import TransactionService
-from app.exceptions import BusinessException
 from app.ai_service import AIService
+from app.exceptions import BusinessException
+
+load_dotenv()
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -46,19 +42,6 @@ app.add_middleware(
 service = TransactionService()
 ai_service = AIService()
 
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = "HS256"
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-def create_tokens(username: str):
-    access_expire = datetime.utcnow() + timedelta(minutes=15)
-    access_token = jwt.encode({"sub": username, "exp": access_expire, "type": "access"}, SECRET_KEY, algorithm=ALGORITHM)
-    
-    refresh_expire = datetime.utcnow() + timedelta(days=7)
-    refresh_token = jwt.encode({"sub": username, "exp": refresh_expire, "type": "refresh"}, SECRET_KEY, algorithm=ALGORITHM)
-    
-    return access_token, refresh_token
-
 @app.exception_handler(BusinessException)
 async def business_exception_handler(request: Request, exc: BusinessException):
     return JSONResponse(
@@ -69,6 +52,14 @@ async def business_exception_handler(request: Request, exc: BusinessException):
             "path": request.url.path
         },
     )
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    error_msg = exc.errors()[0]['msg']
+    field = exc.errors()[0]['loc'][-1]
+    return JSONResponse(
+        status_code=422,
+        content={"detail": f"Lỗi ở trường '{field}': {error_msg}"},
+    )
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
@@ -76,64 +67,48 @@ async def general_exception_handler(request: Request, exc: Exception):
         content={"status": "critical", "message": "Lỗi hệ thống nghiêm trọng!"}
     )
 
-def create_tokens(username: str):
-    now = datetime.now(timezone.utc)
-    
-    access_token = jwt.encode(
-        {"sub": username, "exp": now + timedelta(minutes=30), "type": "access"}, 
-        SECRET_KEY, algorithm=ALGORITHM
-    )
-    refresh_token = jwt.encode(
-        {"sub": username, "exp": now + timedelta(days=7), "type": "refresh"}, 
-        SECRET_KEY, algorithm=ALGORITHM
-    )
-    return access_token, refresh_token
-
-def get_current_user(token: str = Depends(schemas.oauth2_scheme), db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("type") != "access":
-            raise HTTPException(status_code=401, detail="Vui lòng sử dụng Access Token")
-            
-        username: str = payload.get("sub")
-        user = db.query(models.User).filter(models.User.username == username).first()
-        if not user: raise JWTError()
-        return user
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Phiên đăng nhập không hợp lệ")
-
-
 
 # --- 1. AUTH ---
 @app.post("/auth/refresh", tags=["Auth"])
 def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("type") != "refresh":
-            raise BusinessException("Token không hợp lệ")
-        
-        username = payload.get("sub")
-        db_user = db.query(models.User).filter(models.User.username == username, models.User.refresh_token == refresh_token).first()
-        
-        if not db_user:
-            raise BusinessException("Phiên đăng nhập đã hết hạn hoặc bị thu hồi", status_code=401)
-        
-        new_at, new_rt = create_tokens(username)
-        db_user.refresh_token = new_rt
-        db.commit()
-        
-        return {"access_token": new_at, "refresh_token": new_rt, "token_type": "bearer"}
-        
-    except JWTError:
+    payload = services.decode_token(refresh_token)
+    
+    if not payload or payload.get("type") != "refresh":
         raise BusinessException("Token không hợp lệ hoặc đã hết hạn", status_code=401)
+    
+    username = payload.get("sub")
+    db_user = db.query(models.User).filter(
+        models.User.username == username, 
+        models.User.refresh_token == refresh_token
+    ).first()
+    
+    if not db_user:
+        raise BusinessException("Phiên đăng nhập đã hết hạn hoặc bị thu hồi", status_code=401)
+    
+    new_at, new_rt = services.create_tokens(username)
+    
+    db_user.refresh_token = new_rt
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise BusinessException("Lỗi hệ thống khi cập nhật phiên đăng nhập", status_code=500)
+    
+    return {
+        "access_token": new_at, 
+        "refresh_token": new_rt, 
+        "token_type": "bearer"
+    }
 
 @app.post("/auth/login", tags=["Auth"])
 def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.username == user.username).first()
-    if not db_user or not pwd_context.verify(user.password, db_user.password_hash):
+    
+    if not db_user or not services.pwd_context.verify(user.password, db_user.password_hash):
         raise BusinessException("Sai tài khoản hoặc mật khẩu", status_code=401)
     
-    at, rt = create_tokens(db_user.username)
+    at, rt = services.create_tokens(db_user.username)
+    
     db_user.refresh_token = rt
     db.commit()
     
@@ -147,15 +122,13 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
 
 @app.post("/auth/register", tags=["Auth"])
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.username == user.username).first()
-    if db_user:
+    if db.query(models.User).filter(models.User.username == user.username).first():
         raise BusinessException("Tên đăng nhập đã tồn tại!", status_code=400)
     
-    db_email = db.query(models.User).filter(models.User.email == user.email).first()
-    if db_email:
+    if db.query(models.User).filter(models.User.email == user.email).first():
         raise BusinessException("Email này đã được sử dụng!", status_code=400)
 
-    hashed_password = pwd_context.hash(user.password)
+    hashed_password = services.pwd_context.hash(user.password)
 
     new_user = models.User(
         username=user.username,
@@ -167,14 +140,25 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
+        
+        services.seed_default_categories(db, new_user.id)
+        
         return {"status": "success", "message": "Đăng ký tài khoản thành công!"}
     except Exception as e:
         db.rollback()
-        raise BusinessException("Lỗi hệ thống khi tạo tài khoản", status_code=500)
+        raise BusinessException(f"Lỗi khi tạo tài khoản: {str(e)}", status_code=500)
     
 # --- 2. WALLETS ---
 @app.post("/wallets/", response_model=schemas.WalletResponse, tags=["Wallets"])
 def create_wallet(wallet: schemas.WalletCreate, db: Session = Depends(get_db)):
+    existing = db.query(models.Wallet).filter(
+        models.Wallet.user_id == wallet.user_id,
+        models.Wallet.name.ilike(wallet.name)
+    ).first()
+
+    if existing:
+        raise BusinessException(f"Ví '{wallet.name}' đã tồn tại rồi!", status_code=400)
+    
     db_wallet = models.Wallet(**wallet.dict()) 
     
     db.add(db_wallet)
@@ -189,6 +173,14 @@ def get_user_wallets(user_id: int, db: Session = Depends(get_db)):
 # --- 3. CATEGORIES ---
 @app.post("/categories/", response_model=schemas.CategoryResponse, tags=["Categories"])
 def create_category(category: schemas.CategoryCreate, db: Session = Depends(get_db)):
+    existing = db.query(models.Category).filter(
+        models.Category.user_id == category.user_id,
+        models.Category.name.ilike(category.name)
+    ).first()
+
+    if existing:
+        raise BusinessException(f"Danh mục '{category.name}' đã tồn tại rồi!", status_code=400)
+    
     new_category = models.Category(**category.dict()) 
     
     db.add(new_category)
@@ -198,9 +190,30 @@ def create_category(category: schemas.CategoryCreate, db: Session = Depends(get_
 
 @app.get("/categories/user/{user_id}", response_model=List[schemas.CategoryResponse], tags=["Categories"])
 def get_categories(user_id: int, db: Session = Depends(get_db)):
-    return db.query(models.Category).filter(
+    results = db.query(
+        models.Category,
+        func.count(models.Transaction.id).label("transaction_count")
+    ).outerjoin(
+        models.Transaction, 
+        (models.Transaction.category_id == models.Category.id) & (models.Transaction.deleted_at == None)
+    ).filter(
         (models.Category.user_id == user_id) | (models.Category.user_id.is_(None))
-    ).all()
+    ).group_by(models.Category.id).all()
+
+    categories_with_count = []
+    for cat, count in results:
+        cat_dict = {
+            "id": cat.id,
+            "name": cat.name,
+            "type": cat.type,
+            "user_id": cat.user_id,
+            "icon": cat.icon,
+            "color": cat.color,
+            "transaction_count": count
+        }
+        categories_with_count.append(cat_dict)
+
+    return categories_with_count
 
 @app.delete("/categories/{cat_id}")
 def delete_category(cat_id: int, user_id: int, db: Session = Depends(get_db)):
@@ -294,8 +307,15 @@ def search_transactions(
     category_id: Optional[int] = None,
     wallet_id: Optional[int] = None,
     note: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
+    dt_start = datetime.strptime(start_date, "%Y-%m-%d") if start_date else None
+    dt_end = datetime.strptime(end_date, "%Y-%m-%d") if end_date else None
+    if dt_end:
+        dt_end = dt_end.replace(hour=23, minute=59, second=59)
+
     query = db.query(
         models.Transaction,
         models.Category.name.label("category_name"),
@@ -310,6 +330,10 @@ def search_transactions(
         models.Transaction.user_id == user_id,
         models.Transaction.deleted_at == None
     )
+    if dt_start:
+        query = query.filter(models.Transaction.transaction_date >= dt_start)
+    if dt_end:
+        query = query.filter(models.Transaction.transaction_date <= dt_end)
     if category_id:
         query = query.filter(models.Transaction.category_id == category_id)
     if wallet_id:
@@ -336,36 +360,113 @@ def search_transactions(
     
     return formatted_data
 
+@app.post("/transactions/transfer", tags=["Transactions"])
+def transfer_money(request: schemas.TransferRequest, db: Session = Depends(get_db)):
+    w_from = db.query(models.Wallet).filter(models.Wallet.id == request.from_wallet_id).first()
+    w_to = db.query(models.Wallet).filter(models.Wallet.id == request.to_wallet_id).first()
+    
+    if not w_from or not w_to:
+        raise HTTPException(status_code=404, detail="Không tìm thấy ví!")
+
+    transfer_cat = db.query(models.Category).filter(
+        models.Category.user_id == request.user_id,
+        models.Category.name == "Chuyển khoản"
+    ).first()
+
+    cat_id = transfer_cat.id if transfer_cat else 1
+
+    tx_out = models.Transaction(
+        user_id=request.user_id,
+        wallet_id=request.from_wallet_id,
+        category_id=cat_id, 
+        amount=request.amount,
+        note=f"[Chuyển tiền] Sang ví {w_to.name}",
+        transaction_date=datetime.now()
+    )
+    
+    tx_in = models.Transaction(
+        user_id=request.user_id,
+        wallet_id=request.to_wallet_id,
+        category_id=cat_id, 
+        amount=request.amount,
+        note=f"[Nhận tiền] Từ ví {w_from.name}",
+        transaction_date=datetime.now()
+    )
+
+    w_from.balance -= request.amount
+    w_to.balance += request.amount
+
+    db.add(tx_out)
+    db.add(tx_in)
+    db.commit()
+    return {"message": "Chuyển tiền thành công! 💸"}
+
 # --- 6. REPORTS ---
 @app.get("/reports/{user_id}", tags=["Reports"])
 def get_monthly_report(user_id: int, month: int, year: int, db: Session = Depends(get_db)):
     from datetime import date
     import calendar
-    
+    from sqlalchemy import func
+
     last_day = calendar.monthrange(year, month)[1]
     start_date = date(year, month, 1)
     end_date = date(year, month, last_day)
 
-    transactions = db.query(models.Transaction).filter(
+    transactions = db.query(models.Transaction).join(models.Category).filter(
         models.Transaction.user_id == user_id,
         models.Transaction.transaction_date >= start_date,
         models.Transaction.transaction_date <= end_date,
-        models.Transaction.deleted_at == None
+        models.Transaction.deleted_at == None,
+        models.Category.name != "Chuyển khoản"
     ).all()
 
-    period_income = 0
-    period_expenses = 0
+    period_income = sum(tx.amount for tx in transactions if tx.category.type == "INCOME")
+    period_expenses = sum(tx.amount for tx in transactions if tx.category.type == "EXPENSE")
 
-    for tx in transactions:
-        if tx.category.type == "INCOME":
-            period_income += tx.amount
-        else:
-            period_expenses += tx.amount
+    expense_details = db.query(
+        models.Category.name.label("category_name"),
+        models.Category.color.label("category_color"),
+        func.sum(models.Transaction.amount).label("actual_spent")
+    ).join(models.Category, models.Transaction.category_id == models.Category.id)\
+     .filter(
+        models.Transaction.user_id == user_id,
+        models.Transaction.transaction_date >= start_date,
+        models.Transaction.transaction_date <= end_date,
+        models.Transaction.deleted_at == None,
+        models.Category.type == "EXPENSE"
+    ).group_by(models.Category.id).all()
+
+    income_details = db.query(
+        models.Category.name.label("category_name"),
+        models.Category.color.label("category_color"),
+        func.sum(models.Transaction.amount).label("actual_amount")
+    ).join(models.Category, models.Transaction.category_id == models.Category.id)\
+     .filter(
+        models.Transaction.user_id == user_id,
+        models.Transaction.transaction_date >= start_date,
+        models.Transaction.transaction_date <= end_date,
+        models.Transaction.deleted_at == None,
+        models.Category.type == "INCOME"
+    ).group_by(models.Category.id).all()
 
     return {
         "period_income": float(period_income),
         "period_expenses": float(period_expenses),
-        "period_change": float(period_income - period_expenses)
+        "period_change": float(period_income - period_expenses),
+        "item_expenses": [
+            {
+                "category_name": row.category_name,
+                "category_color": row.category_color,
+                "actual_spent": float(row.actual_spent)
+            } for row in expense_details
+        ],
+        "item_incomes": [
+            {
+                "category_name": row.category_name,
+                "category_color": row.category_color,
+                "total": float(row.actual_amount)
+            } for row in income_details
+        ]
     }
 
 @app.post("/upload-receipt/{tx_id}")
@@ -391,16 +492,63 @@ async def upload_receipt(tx_id: int, file: UploadFile = File(...), db: Session =
 
 @app.get("/reports/ai-advice/{user_id}", tags=["Reports"])
 def get_smart_advice(user_id: int, month: int, year: int, db: Session = Depends(get_db)):
-    report = service.get_monthly_report(db, user_id, month, year)
+    report = get_monthly_report(user_id, month, year, db)
+
+    if isinstance(report, dict):
+        t_income = report.get('period_income', 0)
+        t_spent = report.get('period_expenses', 0)
+        expenses = report.get('item_expenses', [])
+        incomes = report.get('item_incomes', [])
+    else:
+        return {"advice": "Dữ liệu trả về đang bị sai định dạng."}
+
+    if t_income == 0 and t_spent == 0:
+        return {"advice": "Bạn ơi, tháng này chưa có dữ liệu thu chi để mình tư vấn rồi! 🤖"}
+
+    expense_str = ", ".join([f"{i['category_name']}: {int(i['actual_spent']):,}đ" for i in expenses])
+    income_str = ", ".join([f"{i['category_name']}: {int(i['total']):,}đ" for i in incomes])
     
-    data_str = ", ".join([f"{item['category']}: {item['total']:,}đ" for item in report])
-    
-    if not report:
-        return {"advice": "Bạn chưa có giao dịch nào trong tháng này để mình tư vấn rồi!"}
+    prompt = f"""
+    Dữ liệu của Tôi:
+    - Thu nhập: {int(t_income):,}đ ({income_str})
+    - Chi tiêu: {int(t_spent):,}đ ({expense_str})
+    Hãy đưa ra lời khuyên tài chính ngắn gọn (dưới 100 từ), xưng Toàn, dùng emoji.
+    Lưu ý: Gifts và Salary là Thu nhập, không khuyên cắt giảm!
+    """
 
     try:
-        advice = ai_service.get_financial_advice(data_str)
+        advice = ai_service.get_financial_advice(prompt)
         return {"advice": advice}
     except Exception as e:
-        print(f"AI Error: {e}")
-        return {"advice": "Tháng này ""Người ấy"" chi tiêu khá sôi động đấy, hãy chú ý các mục tiêu lớn nhé!"}
+        print(f"Lỗi gọi AI: {e}")
+        return {"advice": "AI đang bận một chút, Bạn đợi tí nhé! 😴"}
+
+@app.post("/ai/chat", tags=["AI Pro"])
+def ai_chat_consultant(user_id: int, message: str, db: Session = Depends(get_db)):
+    try:
+        wallets = db.query(models.Wallet).filter(
+            models.Wallet.user_id == user_id,
+            models.Wallet.deleted_at == None
+        ).all()
+        
+        total_balance = sum(w.balance for w in wallets)
+        
+        context_prompt = f"""
+        Bạn là Spendee AI - Cố vấn tài chính cá nhân của Tôi.
+        Bối cảnh: Tôi đang có tổng số dư khả dụng là {total_balance:,.0f} VNĐ.
+        
+        Hãy trả lời câu hỏi của Tôi một cách thực tế và thẳng thắn:
+        Câu hỏi: "{message}"
+        
+        QUY TẮC:
+        - Nếu Tôi hỏi mua món đồ vượt quá 30% số dư hiện tại, hãy khuyên Tôi cân nhắc kỹ hoặc từ chối.
+        - Xưng hô thân thiện, dùng emoji.
+        - Trả lời cực ngắn gọn (dưới 100 từ).
+        """
+        
+        reply = ai_service.get_financial_advice(context_prompt)
+        return {"reply": reply}
+        
+    except Exception as e:
+        print(f"❌ AI Error (Chat): {e}")
+        return {"reply": "Mình đang bận tính toán ngân sách một chút, Bạn hỏi lại sau nhé! 😅"}

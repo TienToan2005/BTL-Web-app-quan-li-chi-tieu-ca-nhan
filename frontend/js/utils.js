@@ -4,6 +4,18 @@ const Utils = {
         if (amount === undefined || amount === null) return "0 đ";
         return new Intl.NumberFormat('vi-VN').format(amount) + " đ";
     },
+    formatInputMoney(input) {
+        let value = input.value.replace(/\D/g, "");
+        if (value === "") {
+            input.value = "";
+            return;
+        }
+        input.value = new Intl.NumberFormat('vi-VN').format(value);
+    },
+
+    getRawMoney(formattedValue) {
+        return parseFloat(formattedValue.replace(/\./g, "")) || 0;
+    },
 
     getMonthName(monthNumber) {
         const months = [

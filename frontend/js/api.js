@@ -102,6 +102,23 @@ const API = {
         });
     },
 
+    async post(endpoint, data) {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`${BASE_URL}${endpoint}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Lỗi API');
+        }
+        return await response.json();
+    },
+
     async deleteCategory(catId, userId) {
         return this.fetchWithAuth(`/categories/${catId}?user_id=${userId}`, {
             method: 'DELETE'

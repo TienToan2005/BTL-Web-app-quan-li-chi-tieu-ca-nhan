@@ -133,3 +133,23 @@ body {
     align-items: center !important;
     justify-content: center !important;
 }
+.custom-card { border-radius: 20px; border: none; }
+.text-spendee { color: #1FC06A; }
+.bg-spendee { background-color: #1FC06A; }
+.chart-legend {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    font-size: 0.85rem;
+}
+.bg-orange { background-color: #fd7e14 !important; }
+.text-warning { color: #ffc107 !important; } /* Sửa lại màu vàng cho rõ */
+
+.custom-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.custom-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}

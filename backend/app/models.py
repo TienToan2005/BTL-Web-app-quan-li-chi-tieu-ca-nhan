@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
 import enum
+from sqlalchemy import UniqueConstraint
 
 class CategoryType(enum.Enum):
     INCOME = "INCOME"
@@ -48,6 +49,9 @@ class Wallet(Base):
 
     user = relationship("User", back_populates="wallets")
     transactions = relationship("Transaction", back_populates="wallet")
+    __table_args__ = (
+        UniqueConstraint('user_id', 'name', name='_user_wallet_uc'),
+    )
 
 class Category(Base):
     __tablename__ = "categories"
@@ -67,6 +71,9 @@ class Category(Base):
     deleted_by = Column(String(255), nullable=True)
 
     user = relationship("User", back_populates="categories")
+    __table_args__ = (
+        UniqueConstraint('user_id', 'name', name='_user_category_uc'),
+    )
 
 class Transaction(Base):
     __tablename__ = "transactions"

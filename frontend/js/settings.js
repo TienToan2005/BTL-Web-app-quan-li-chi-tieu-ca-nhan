@@ -105,7 +105,10 @@ const SettingsManager = {
             icon: this.selectedIcon,
             color: document.getElementById('catColor').value
         };
-        if (!data.name) return alert("Nhập tên danh mục!");
+        if (!data.name) {
+            Toast.error("Nhập tên danh mục!");
+            return;
+        }
         try {
             await API.createCategory(data);
             document.getElementById('catName').value = '';
@@ -137,7 +140,9 @@ const SettingsManager = {
     createRowItem(item, isWallet = false) {
         const icon = item.icon || (isWallet ? "fa-wallet" : "fa-tag");
         const color = item.color || "#adb5bd";
-        const subtitle = isWallet ? `Số dư: <span class="text-success">${Utils.formatMoney(item.balance)}</span>` : "0 giao dịch";
+        const subtitle = isWallet 
+            ? `Số dư: <span class="text-success">${Utils.formatMoney(item.balance)}</span>` 
+            : `${item.transaction_count || 0} giao dịch`; 
         const deleteAction = isWallet ? `SettingsManager.deleteWallet(${item.id})` : `SettingsManager.deleteCat(${item.id}, '${item.name}')`;
 
         return `

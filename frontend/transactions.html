@@ -3,33 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Giao dịch - Spendee Pro</title>
+    <title>Giao dịch - $pendee Pro</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-bootstrap-4/bootstrap-4.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; }
+        .text-spendee { color: #1FC06A; }
+        .bg-spendee { background-color: #1FC06A; }
+        .cursor-pointer { cursor: pointer; }
+        .custom-card { border-radius: 20px; border: none; }
+        .nav-link.active { color: #1FC06A !important; border-bottom: 3px solid #1FC06A; font-weight: bold; }
+        .money-input { font-size: 1.5rem; font-weight: 700; color: #1FC06A; text-align: center; }
+        .hover-row:hover { background-color: #f8f9fa; transition: 0.2s; }
+    </style>
 </head>
-<body class="bg-light" style="font-family: 'Inter', sans-serif;">
+<body class="bg-light">
 
-    <nav class="navbar navbar-expand-lg bg-white shadow-sm py-3">
+    <nav class="navbar navbar-expand-lg bg-white shadow-sm py-3 sticky-top">
         <div class="container">
             <a class="navbar-brand fw-bold fs-4 text-dark" href="dashboard.html">
-                <i class="fa-solid fa-chart-pie" style="color: #1FC06A;"></i> $pendee
+                <i class="fa-solid fa-chart-pie text-spendee"></i> $pendee
             </a>
             <div class="collapse navbar-collapse justify-content-center">
                 <ul class="navbar-nav">
-                    <li class="nav-item mx-3"><a class="nav-link text-secondary" href="dashboard.html">Dashboard</a></li>
-                    <li class="nav-item mx-3"><a class="nav-link text-secondary" href="budgets.html">Budgets</a></li>
-                    <li class="nav-item mx-3"><a class="nav-link active fw-bold border-bottom border-success border-3 pb-2" style="color: #1FC06A;" href="#">Transactions</a></li>
+                    <li class="nav-item mx-3"><a class="nav-link text-secondary fw-medium" href="dashboard.html">Dashboard</a></li>
+                    <li class="nav-item mx-3"><a class="nav-link text-secondary fw-medium" href="budgets.html">Budgets</a></li>
+                    <li class="nav-item mx-3"><a class="nav-link active" href="transactions.html">Transactions</a></li>
                 </ul>
             </div>
             <div class="dropdown">
-                <div class="d-flex align-items-center cursor-pointer" id="userMenu" data-bs-toggle="dropdown">
+                <div class="d-flex align-items-center cursor-pointer" data-bs-toggle="dropdown">
                     <img id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=random" class="rounded-circle me-2" width="35">
-                    <span id="userDisplay" class="text-secondary fw-bold text-capitalize">Loading...</span>
-                    <i class="fa-solid fa-chevron-down ms-2 text-secondary" style="font-size: 0.7rem;"></i>
+                    <span id="userDisplay" class="text-secondary fw-bold text-capitalize text-truncate" style="max-width: 100px;">Toàn</span>
                 </div> 
                 <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
                     <li><a class="dropdown-item py-2" href="settings.html"><i class="fa-solid fa-gear me-2"></i> Cài đặt</a></li>
@@ -43,43 +52,70 @@
     <div class="container mt-5" style="max-width: 1000px;">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h4 class="fw-bold text-dark m-0">Lịch sử giao dịch</h4>
-            <button class="btn btn-success fw-bold border-0 shadow-sm" onclick="TransactionManager.openAddModal()" style="background-color: #1FC06A;">
-                <i class="fa-solid fa-plus me-2"></i> Thêm giao dịch
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary fw-bold border-2 shadow-sm rounded-3 px-3" onclick="TransactionManager.openTransferModal()">
+                    <i class="fa-solid fa-right-left me-2"></i> Chuyển tiền
+                </button>
+                <button class="btn btn-success fw-bold border-0 shadow-sm rounded-3 px-3" onclick="TransactionManager.openAddModal()" style="background-color: #1FC06A;">
+                    <i class="fa-solid fa-plus me-2"></i> Thêm giao dịch
+                </button>
+            </div>
         </div>
 
-        <div class="card border-0 shadow-sm mb-4 p-3 rounded-4">
-            <div class="row g-2">
+        <div class="card border-0 shadow-sm mb-4 p-4 rounded-4 bg-white">
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="small fw-bold text-secondary mb-1"><i class="fa-regular fa-calendar-minus me-1"></i> Từ ngày</label>
+                    <input type="date" id="startDate" class="form-control border-0 bg-light rounded-3">
+                </div>
+                <div class="col-md-6">
+                    <label class="small fw-bold text-secondary mb-1"><i class="fa-regular fa-calendar-plus me-1"></i> Đến ngày</label>
+                    <input type="date" id="endDate" class="form-control border-0 bg-light rounded-3">
+                </div>
+            </div>
+            <div class="row g-3">
                 <div class="col-md-4">
-                    <input type="text" id="searchNote" class="form-control border-0 bg-light" placeholder="Tìm kiếm ghi chú...">
+                    <input type="text" id="searchNote" class="form-control border-0 bg-light rounded-3" placeholder="Tìm kiếm ghi chú...">
                 </div>
                 <div class="col-md-3">
-                    <select id="filterWallet" class="form-select border-0 bg-light"><option value="">Tất cả ví</option></select>
+                    <select id="filterWallet" class="form-select border-0 bg-light rounded-3">
+                        <option value="">Tất cả ví</option>
+                    </select>
                 </div>
                 <div class="col-md-3">
-                    <select id="filterCategory" class="form-select border-0 bg-light"><option value="">Tất cả danh mục</option></select>
+                    <select id="filterCategory" class="form-select border-0 bg-light rounded-3">
+                        <option value="">Tất cả danh mục</option>
+                    </select>
                 </div>
                 <div class="col-md-2">
-                    <button class="btn btn-success w-100 fw-bold border-0" onclick="TransactionManager.loadTransactions()" style="background-color: #1FC06A;">Lọc</button>
+                    <div class="d-flex gap-2 h-100">
+                        <button class="btn btn-success flex-grow-1 fw-bold border-0 shadow-sm rounded-3" onclick="TransactionManager.loadTransactions()" style="background-color: #1FC06A;">
+                            <i class="fa-solid fa-filter"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary px-3 rounded-3" onclick="TransactionManager.resetFilters()" title="Làm mới bộ lọc">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white mb-5">
             <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="bg-light">
-                    <tr class="text-secondary small fw-bold">
-                        <th class="ps-4 py-3">NGÀY</th>
-                        <th class="py-3">DANH MỤC</th>
-                        <th class="py-3">VÍ</th>
-                        <th class="py-3">GHI CHÚ</th>
-                        <th class="py-3 text-end">SỐ TIỀN</th>
-                        <th class="py-3 text-center pe-4">THAO TÁC</th> </tr>
-                </thead>
-                <tbody id="transaction-list">
-                    </tbody>
-            </table>
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr class="text-secondary small fw-bold">
+                            <th class="ps-4 py-3">NGÀY</th>
+                            <th class="py-3">DANH MỤC</th>
+                            <th class="py-3">VÍ</th>
+                            <th class="py-3">GHI CHÚ</th>
+                            <th class="py-3 text-end">SỐ TIỀN</th>
+                            <th class="py-3 text-center pe-4">THAO TÁC</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transaction-list" class="hover-row">
+                        </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -87,31 +123,61 @@
     <div class="modal fade" id="addTransactionModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg rounded-4">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="fw-bold">Ghi chép chi tiêu</h5>
+                <div class="modal-header border-0 pb-0 pt-4 px-4">
+                    <h5 class="fw-bold m-0">Ghi chép chi tiêu</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
                     <form id="addTransactionForm">
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-muted">SỐ TIỀN</label>
-                            <input type="number" id="tAmount" class="form-control form-control-lg fw-bold text-success border-0 bg-light" placeholder="0" required>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-secondary text-center d-block">SỐ TIỀN (VNĐ)</label>
+                            <input type="text" id="tAmount" class="form-control border-2 money-input" placeholder="0" required>
                         </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
+                        <div class="row g-3">
+                            <div class="col-6 mb-3">
                                 <label class="form-label small fw-bold text-muted">CHỌN VÍ</label>
-                                <select id="tWallet" class="form-select border-0 bg-light" required></select>
+                                <select id="tWallet" class="form-select border-0 bg-light py-2" required></select>
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-6 mb-3">
                                 <label class="form-label small fw-bold text-muted">DANH MỤC</label>
-                                <select id="tCategory" class="form-select border-0 bg-light" required></select>
+                                <select id="tCategory" class="form-select border-0 bg-light py-2" required></select>
                             </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label small fw-bold text-muted">GHI CHÚ</label>
                             <textarea id="tNote" class="form-control border-0 bg-light" rows="2" placeholder="Hôm nay mua gì thế?"></textarea>
                         </div>
-                        <button type="submit" class="btn btn-success w-100 fw-bold py-3 mt-2 border-0" style="background-color: #1FC06A;">LƯU GIAO DỊCH</button>
+                        <button type="submit" class="btn btn-success w-100 fw-bold py-3 mt-2 border-0 shadow" style="background-color: #1FC06A;">LƯU GIAO DỊCH</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="transferModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-0 pt-4 px-4">
+                    <h5 class="fw-bold m-0 text-primary"><i class="fa-solid fa-money-bill-transfer me-2"></i>Chuyển tiền nội bộ</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="transferForm">
+                        <div class="mb-4 text-center">
+                            <label class="form-label small fw-bold text-secondary">SỐ TIỀN CHUYỂN</label>
+                            <input type="text" id="transferAmount" class="form-control border-2 money-input" style="color: #0d6efd;" placeholder="0" required>
+                        </div>
+                        <div class="row g-3 mb-4">
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-muted">TỪ VÍ (NGUỒN)</label>
+                                <select id="fromWallet" class="form-select border-0 bg-light" required></select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-muted">SANG VÍ (ĐÍCH)</label>
+                                <select id="toWallet" class="form-select border-0 bg-light" required></select>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 fw-bold py-3 shadow-sm border-0 rounded-3">XÁC NHẬN CHUYỂN</button>
                     </form>
                 </div>
             </div>
@@ -122,7 +188,6 @@
     <script src="js/api.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/auth.js"></script>
-    <script src="js/category-data.js"></script> 
     <script src="js/transactions.js"></script>
 </body>
 </html>

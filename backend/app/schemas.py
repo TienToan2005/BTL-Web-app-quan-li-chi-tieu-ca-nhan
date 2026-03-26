@@ -44,6 +44,12 @@ class WalletResponse(WalletBase):
     class Config:
         from_attributes = True
 
+class TransferRequest(BaseModel):
+    from_wallet_id: int
+    to_wallet_id: int
+    amount: Decimal
+    user_id: int
+    
 class CategoryBase(BaseModel):
     name: str
     type: str 
@@ -56,6 +62,7 @@ class CategoryCreate(CategoryBase):
 
 class CategoryResponse(CategoryBase):
     id: int 
+    transaction_count: int = 0
     class Config:
         from_attributes = True
         

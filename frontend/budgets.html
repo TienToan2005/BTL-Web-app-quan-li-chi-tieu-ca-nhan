@@ -55,7 +55,14 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h4 class="fw-bold text-dark mb-1">Ngân sách chi tiêu</h4>
-                <p class="text-secondary mb-0" id="currentMonthYear">Tháng 3, 2026</p>
+                <div class="d-flex align-items-center bg-white px-3 py-1 rounded-3 shadow-sm border mt-2">
+                    <i class="fa-solid fa-angle-left cursor-pointer text-secondary px-2" onclick="BudgetManager.changeMonth(-1)"></i>
+                    
+                    <span id="calendarText" class="fw-bold text-dark mx-2" style="min-width: 120px; text-align: center;">Tháng 3, 2026</span>
+                    <i class="fa-regular fa-calendar-check text-spendee"></i>
+                    
+                    <i class="fa-solid fa-angle-right cursor-pointer text-secondary px-2" onclick="BudgetManager.changeMonth(1)"></i>
+                </div>
             </div>
             <button class="btn btn-spendee shadow-sm px-4 py-2 fw-bold" onclick="BudgetManager.openAddModal()">
                 <i class="fa-solid fa-plus me-1"></i> Add New Budget
@@ -88,7 +95,7 @@
                     <form id="addBudgetForm">
                         <div class="mb-4">
                             <label class="form-label small fw-bold text-muted uppercase">HẠN MỨC CHI TIÊU (VNĐ)</label>
-                            <input type="number" id="budgetAmount" class="form-control form-control-lg border-2" placeholder="VD: 2000000" required>
+                            <input type="text" id="budgetAmount" class="form-control form-control-lg border-2" placeholder="VD: 2000000" required>
                         </div>
                         <div class="mb-4">
                             <label class="form-label small fw-bold text-muted uppercase">DANH MỤC ÁP DỤNG</label>
