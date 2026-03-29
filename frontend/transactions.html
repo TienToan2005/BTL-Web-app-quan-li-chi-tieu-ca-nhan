@@ -3,210 +3,163 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Giao dịch - $pendee Pro</title>
+    <title>Giao dịch - Persional Budget</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-bootstrap-4/bootstrap-4.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="css/style.css">
-    <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; }
-        .text-spendee { color: #1FC06A; }
-        .bg-spendee { background-color: #1FC06A; }
-        .cursor-pointer { cursor: pointer; }
-        .custom-card { border-radius: 20px; border: none; }
-        .nav-link.active { color: #1FC06A !important; border-bottom: 3px solid #1FC06A; font-weight: bold; }
-        .money-input { font-size: 1.5rem; font-weight: 700; color: #1FC06A; text-align: center; }
-        .hover-row:hover { background-color: #f8f9fa; transition: 0.2s; }
-    </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
-<body class="bg-light">
+<body>
 
-    <nav class="navbar navbar-expand-lg bg-white shadow-sm py-3 sticky-top">
-        <div class="container">
-            <a class="navbar-brand fw-bold fs-4 text-dark" href="dashboard.html">
-                <i class="fa-solid fa-chart-pie text-spendee"></i> $pendee
-            </a>
-            <div class="collapse navbar-collapse justify-content-center">
-                <ul class="navbar-nav">
-                    <li class="nav-item mx-3"><a class="nav-link text-secondary fw-medium" href="dashboard.html">Dashboard</a></li>
-                    <li class="nav-item mx-3"><a class="nav-link text-secondary fw-medium" href="budgets.html">Budgets</a></li>
-                    <li class="nav-item mx-3"><a class="nav-link active" href="transactions.html">Transactions</a></li>
-                </ul>
-            </div>
-            <div class="dropdown">
-                <div class="d-flex align-items-center cursor-pointer" data-bs-toggle="dropdown">
-                    <img id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=random" class="rounded-circle me-2" width="35">
-                    <span id="userDisplay" class="text-secondary fw-bold text-capitalize text-truncate" style="max-width: 100px;">Toàn</span>
-                </div> 
-                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
-                    <li><a class="dropdown-item py-2" href="settings.html"><i class="fa-solid fa-gear me-2"></i> Cài đặt</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item py-2 text-danger fw-bold" href="#" onclick="Auth.logout()"><i class="fa-solid fa-right-from-bracket me-2"></i> Đăng xuất</a></li>
-                </ul>
-            </div>
+<div class="app-container">
+    <div class="sidebar">
+        <a href="dashboard.html" class="logo">Persional Budget</a>
+        <div class="menu">
+            <a href="dashboard.html" class="menu-item"><i class="fa-solid fa-house"></i> Dashboard</a>
+            <a href="budgets.html" class="menu-item"><i class="fa-solid fa-chart-pie"></i> Budgets</a>
+            <a href="transactions.html" class="menu-item active"><i class="fa-solid fa-money-bill-transfer"></i> Transactions</a>
+            <a href="settings.html" class="menu-item"><i class="fa-solid fa-gear"></i> Settings</a>
         </div>
-    </nav>
+    </div>
 
-    <div class="container mt-5" style="max-width: 1000px;">
+    <div class="main-content">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="fw-bold text-dark m-0">Lịch sử giao dịch</h4>
+            <h3 class="fw-bold m-0">Lịch sử giao dịch</h3>
             <div class="d-flex gap-2">
-                <button class="btn btn-outline-primary fw-bold border-2 shadow-sm rounded-3 px-3" onclick="TransactionManager.openTransferModal()">
+                <button class="btn btn-outline-primary fw-bold" onclick="TransactionManager.openTransferModal()">
                     <i class="fa-solid fa-right-left me-2"></i> Chuyển tiền
                 </button>
-
-                <button class="btn btn-success fw-bold border-0 shadow-sm rounded-3 px-3" onclick="TransactionManager.openAddModal()" style="background-color: #1FC06A;">
-                    <i class="fa-solid fa-plus me-2"></i> Thêm giao dịch
+                <button class="btn btn-primary fw-bold" onclick="TransactionManager.openAddModal()">
+                    <i class="fa-solid fa-plus me-2"></i> Thêm GD
                 </button>
-
                 <div class="dropdown">
-                    <button class="btn btn-light fw-bold border-2 shadow-sm rounded-3 px-3 text-secondary" data-bs-toggle="dropdown">
-                        <i class="fa-solid fa-file-export me-2"></i> Xuất file
+                    <button class="btn btn-outline-secondary fw-bold" data-bs-toggle="dropdown">
+                        <i class="fa-solid fa-file-export me-2"></i> Xuất
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2 rounded-3">
-                        <li>
-                            <a class="dropdown-item py-2" href="#" onclick="TransactionManager.handleExport('excel')">
-                                <i class="fa-solid fa-file-excel me-2 text-success"></i> Xuất Excel (.xlsx)
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item py-2" href="#" onclick="TransactionManager.handleExport('pdf')">
-                                <i class="fa-solid fa-file-pdf me-2 text-danger"></i> Xuất PDF (.pdf)
-                            </a>
-                        </li>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                        <li><a class="dropdown-item" href="#" onclick="TransactionManager.handleExport('excel')">Xuất Excel</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="TransactionManager.handleExport('pdf')">Xuất PDF</a></li>
                     </ul>
                 </div>
             </div>
         </div>
 
-        <div class="card border-0 shadow-sm mb-4 p-4 rounded-4 bg-white">
+        <div class="card custom-card p-4 mb-4">
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
-                    <label class="small fw-bold text-secondary mb-1"><i class="fa-regular fa-calendar-minus me-1"></i> Từ ngày</label>
-                    <input type="date" id="startDate" class="form-control border-0 bg-light rounded-3">
+                    <label class="small fw-bold mb-1">Từ ngày</label>
+                    <input type="date" id="startDate" class="form-control">
                 </div>
                 <div class="col-md-6">
-                    <label class="small fw-bold text-secondary mb-1"><i class="fa-regular fa-calendar-plus me-1"></i> Đến ngày</label>
-                    <input type="date" id="endDate" class="form-control border-0 bg-light rounded-3">
+                    <label class="small fw-bold mb-1">Đến ngày</label>
+                    <input type="date" id="endDate" class="form-control">
                 </div>
             </div>
             <div class="row g-3">
                 <div class="col-md-4">
-                    <input type="text" id="searchNote" class="form-control border-0 bg-light rounded-3" placeholder="Tìm kiếm ghi chú...">
+                    <input type="text" id="searchNote" class="form-control" placeholder="Tìm ghi chú...">
                 </div>
                 <div class="col-md-3">
-                    <select id="filterWallet" class="form-select border-0 bg-light rounded-3">
-                        <option value="">Tất cả ví</option>
-                    </select>
+                    <select id="filterWallet" class="form-select"><option value="">Tất cả ví</option></select>
                 </div>
                 <div class="col-md-3">
-                    <select id="filterCategory" class="form-select border-0 bg-light rounded-3">
-                        <option value="">Tất cả danh mục</option>
-                    </select>
+                    <select id="filterCategory" class="form-select"><option value="">Tất cả danh mục</option></select>
                 </div>
-                <div class="col-md-2">
-                    <div class="d-flex gap-2 h-100">
-                        <button class="btn btn-success flex-grow-1 fw-bold border-0 shadow-sm rounded-3" onclick="TransactionManager.loadTransactions()" style="background-color: #1FC06A;">
-                            <i class="fa-solid fa-filter"></i>
-                        </button>
-                        <button class="btn btn-outline-secondary px-3 rounded-3" onclick="TransactionManager.resetFilters()" title="Làm mới bộ lọc">
-                            <i class="fa-solid fa-rotate-left"></i>
-                        </button>
-                    </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button class="btn btn-primary flex-grow-1" onclick="TransactionManager.loadTransactions()"><i class="fa-solid fa-filter"></i></button>
+                    <button class="btn btn-outline-secondary" onclick="TransactionManager.resetFilters()"><i class="fa-solid fa-rotate-left"></i></button>
                 </div>
             </div>
         </div>
 
-        <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white mb-5">
+        <div class="card custom-card overflow-hidden">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="bg-light">
-                        <tr class="text-secondary small fw-bold">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr class="small fw-bold">
                             <th class="ps-4 py-3">NGÀY</th>
-                            <th class="py-3">DANH MỤC</th>
-                            <th class="py-3">VÍ</th>
-                            <th class="py-3">GHI CHÚ</th>
-                            <th class="py-3 text-end">SỐ TIỀN</th>
-                            <th class="py-3 text-center pe-4">THAO TÁC</th>
+                            <th>DANH MỤC</th>
+                            <th>VÍ</th>
+                            <th>GHI CHÚ</th>
+                            <th class="text-end">SỐ TIỀN</th>
+                            <th class="text-center pe-4">THAO TÁC</th>
                         </tr>
                     </thead>
-                    <tbody id="transaction-list" class="hover-row">
-                        </tbody>
+                    <tbody id="transaction-list"></tbody>
                 </table>
             </div>
         </div>
     </div>
+</div>
 
-    <div class="modal fade" id="addTransactionModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg rounded-4">
-                <div class="modal-header border-0 pb-0 pt-4 px-4">
-                    <h5 class="fw-bold m-0">Ghi chép chi tiêu</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <form id="addTransactionForm">
-                        <div class="mb-4">
-                            <label class="form-label small fw-bold text-secondary text-center d-block">SỐ TIỀN (VNĐ)</label>
-                            <input type="text" id="tAmount" class="form-control border-2 money-input" placeholder="0" required>
+<div class="modal fade" id="addTransactionModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pb-0 pt-4 px-4">
+                <h5 class="fw-bold m-0">Thêm Giao Dịch</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="addTransactionForm">
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-center d-block">SỐ TIỀN (VNĐ)</label>
+                        <input type="text" id="tAmount" class="form-control text-center fs-3 fw-bold text-info border-0" placeholder="0" required>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">CHỌN VÍ</label>
+                            <select id="tWallet" class="form-select" required></select>
                         </div>
-                        <div class="row g-3">
-                            <div class="col-6 mb-3">
-                                <label class="form-label small fw-bold text-muted">CHỌN VÍ</label>
-                                <select id="tWallet" class="form-select border-0 bg-light py-2" required></select>
-                            </div>
-                            <div class="col-6 mb-3">
-                                <label class="form-label small fw-bold text-muted">DANH MỤC</label>
-                                <select id="tCategory" class="form-select border-0 bg-light py-2" required></select>
-                            </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">DANH MỤC</label>
+                            <select id="tCategory" class="form-select" required></select>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-muted">GHI CHÚ</label>
-                            <textarea id="tNote" class="form-control border-0 bg-light" rows="2" placeholder="Hôm nay mua gì thế?"></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-success w-100 fw-bold py-3 mt-2 border-0 shadow" style="background-color: #1FC06A;">LƯU GIAO DỊCH</button>
-                    </form>
-                </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">GHI CHÚ</label>
+                        <textarea id="tNote" class="form-control" rows="2" placeholder="Hôm nay mua gì thế?"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold py-3 mt-2">LƯU GIAO DỊCH</button>
+                </form>
             </div>
         </div>
     </div>
+</div>
 
-    <div class="modal fade" id="transferModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg rounded-4">
-                <div class="modal-header border-0 pt-4 px-4">
-                    <h5 class="fw-bold m-0 text-primary"><i class="fa-solid fa-money-bill-transfer me-2"></i>Chuyển tiền nội bộ</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <form id="transferForm">
-                        <div class="mb-4 text-center">
-                            <label class="form-label small fw-bold text-secondary">SỐ TIỀN CHUYỂN</label>
-                            <input type="text" id="transferAmount" class="form-control border-2 money-input" style="color: #0d6efd;" placeholder="0" required>
+<div class="modal fade" id="transferModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-header border-0 pt-4 px-4">
+                <h5 class="fw-bold m-0"><i class="fa-solid fa-money-bill-transfer me-2"></i>Chuyển tiền</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="transferForm">
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-center d-block">SỐ TIỀN CHUYỂN</label>
+                        <input type="text" id="transferAmount" class="form-control text-center fs-3 fw-bold text-info border-0" placeholder="0" required>
+                    </div>
+                    <div class="row g-3 mb-4">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">TỪ VÍ</label>
+                            <select id="fromWallet" class="form-select" required></select>
                         </div>
-                        <div class="row g-3 mb-4">
-                            <div class="col-6">
-                                <label class="form-label small fw-bold text-muted">TỪ VÍ (NGUỒN)</label>
-                                <select id="fromWallet" class="form-select border-0 bg-light" required></select>
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label small fw-bold text-muted">SANG VÍ (ĐÍCH)</label>
-                                <select id="toWallet" class="form-select border-0 bg-light" required></select>
-                            </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold">SANG VÍ</label>
+                            <select id="toWallet" class="form-select" required></select>
                         </div>
-                        <button type="submit" class="btn btn-primary w-100 fw-bold py-3 shadow-sm border-0 rounded-3">XÁC NHẬN CHUYỂN</button>
-                    </form>
-                </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold py-3">XÁC NHẬN CHUYỂN</button>
+                </form>
             </div>
         </div>
     </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/transactions.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/transactions.js"></script>
 </body>
 </html>

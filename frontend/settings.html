@@ -3,33 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cài đặt - Spendee Pro</title>
+    <title>Cài đặt - Persional Budget</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-bootstrap-4/bootstrap-4.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* Tinh chỉnh riêng cho list-group trang settings để hợp dark mode */
+        .settings-menu .list-group-item {
+            background: transparent;
+            color: rgba(255,255,255,0.7);
+            border: none;
+            border-radius: 12px !important;
+            margin-bottom: 5px;
+            transition: all 0.3s;
+        }
+        .settings-menu .list-group-item:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        .settings-menu .list-group-item.active {
+            background: linear-gradient(45deg, #00c6ff, #0072ff) !important;
+            color: #fff !important;
+            box-shadow: 0 4px 15px rgba(0, 198, 255, 0.3);
+        }
+        
+        /* Tinh chỉnh dropdown icon picker */
+        .icon-dropdown-menu { background: #0a1f44; border: 1px solid rgba(255,255,255,0.1); }
+        .icon-item { background: rgba(255,255,255,0.05); color: #fff; }
+        .icon-item:hover { background: #00c6ff; color: #fff; }
+    </style>
 </head>
-<body style="font-family: 'Inter', sans-serif; background-color: #f8fafc;">
+<body>
 
-    <nav class="navbar navbar-expand-lg bg-white shadow-sm py-3 mb-5">
-        <div class="container">
-            <a class="navbar-brand fw-bold fs-4 text-dark" href="dashboard.html">
-                <i class="fa-solid fa-chart-pie" style="color: #1FC06A;"></i> $pendee
-            </a>
-            <div class="dropdown ms-auto">
-                <div class="d-flex align-items-center cursor-pointer" data-bs-toggle="dropdown">
-                    <img id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=random" class="rounded-circle me-2" width="35">
-                    <span id="userDisplay" class="fw-bold text-secondary text-capitalize">User</span>
+<div class="app-container">
+    <div class="sidebar">
+        <a href="dashboard.html" class="logo">Persional Budget</a>
+        <div class="menu">
+            <a href="dashboard.html" class="menu-item"><i class="fa-solid fa-house"></i> Dashboard</a>
+            <a href="budgets.html" class="menu-item"><i class="fa-solid fa-chart-pie"></i> Budgets</a>
+            <a href="transactions.html" class="menu-item"><i class="fa-solid fa-money-bill-transfer"></i> Transactions</a>
+            <a href="settings.html" class="menu-item active"><i class="fa-solid fa-gear"></i> Settings</a>
+        </div>
+        
+        <div class="sidebar-user dropdown cursor-pointer" data-bs-toggle="dropdown">
+            <div class="d-flex align-items-center">
+                <img id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=random" class="rounded-circle me-3" width="40">
+                <div>
+                    <span id="userDisplay" class="fw-bold d-block text-white">User</span>
+                    <small class="text-white-50">View Profile</small>
                 </div>
             </div>
+            <ul class="dropdown-menu dropdown-menu-dark shadow border-0 mt-2 w-100" style="background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);">
+                <li><a class="dropdown-item py-2 text-danger fw-bold" href="#" onclick="Auth.logout()"><i class="fa-solid fa-right-from-bracket me-2"></i> Đăng xuất</a></li>
+            </ul>
         </div>
-    </nav>
+    </div>
 
-    <div class="container pb-5">
+    <div class="main-content">
+        <h3 class="fw-bold mb-4">Cài đặt hệ thống</h3>
+        
         <div class="row">
             <div class="col-md-3">
-                <div class="list-group shadow-sm border-0 mb-4" id="settings-sidebar">
+                <div class="list-group settings-menu card custom-card p-2 mb-4" id="settings-sidebar">
                     <a href="javascript:void(0)" onclick="SettingsManager.switchTab('category', this)" class="list-group-item list-group-item-action active py-3">
                         <i class="fa-solid fa-tags me-2"></i> Cài đặt danh mục
                     </a>
@@ -42,74 +78,82 @@
             <div class="col-md-9">
                 
                 <div id="section-category">
-                    <div class="card-custom mb-4 bg-white p-3 rounded-4 shadow-sm">
+                    <div class="card custom-card p-4 mb-4">
+                        <h6 class="fw-bold mb-3 text-info">Thêm danh mục mới</h6>
                         <div class="row g-3 align-items-end">
                             <div class="col-md-2 position-relative">
-                                <label class="small fw-bold text-muted mb-1 d-block">Biểu tượng</label>
-                                <div id="iconPickerBtn" class="icon-select-box cursor-pointer bg-light rounded-3 p-2 d-flex align-items-center justify-content-between">
+                                <label class="small fw-bold text-white-50 mb-1 d-block">Biểu tượng</label>
+                                <div id="iconPickerBtn" class="form-control cursor-pointer d-flex align-items-center justify-content-between">
                                     <i class="fa-solid fa-tag" id="selectedIconDisplay"></i>
                                     <i class="fa-solid fa-chevron-down small opacity-50"></i>
                                 </div>
-                                <div id="iconDropdown" class="icon-dropdown-menu d-none shadow-lg border-0"><div class="icon-grid" id="iconGrid"></div></div>
+                                <div id="iconDropdown" class="icon-dropdown-menu d-none shadow-lg rounded-4 position-absolute mt-1 p-2" style="z-index: 1000; width: 250px;">
+                                    <div class="icon-grid d-flex flex-wrap gap-2" id="iconGrid"></div>
+                                </div>
                             </div>
                             <div class="col-md-1">
-                                <label class="small fw-bold text-muted mb-1 d-block">Màu</label>
-                                <input type="color" id="catColor" class="form-control form-control-color border-0 bg-light w-100" value="#1FC06A">
+                                <label class="small fw-bold text-white-50 mb-1 d-block">Màu</label>
+                                <input type="color" id="catColor" class="form-control form-control-color w-100 p-1" value="#00c6ff">
                             </div>
                             <div class="col-md-5">
-                                <label class="small fw-bold text-muted mb-1 d-block">Tên danh mục</label>
-                                <input type="text" id="catName" class="form-control border-0 bg-light" placeholder="Ăn sáng, Bạn gái...">
+                                <label class="small fw-bold text-white-50 mb-1 d-block">Tên danh mục</label>
+                                <input type="text" id="catName" class="form-control" placeholder="Ăn sáng, Bạn gái...">
                             </div>
                             <div class="col-md-2">
-                                <label class="small fw-bold text-muted mb-1 d-block">Loại</label>
-                                <select id="catType" class="form-select border-0 bg-light">
+                                <label class="small fw-bold text-white-50 mb-1 d-block">Loại</label>
+                                <select id="catType" class="form-select">
                                     <option value="EXPENSE">Chi phí</option>
                                     <option value="INCOME">Thu nhập</option>
                                 </select>
                             </div>
                             <div class="col-md-2">
-                                <button class="btn btn-success w-100 fw-bold py-2 border-0" onclick="SettingsManager.createNewCategory()" style="background-color: #1FC06A;">Tạo</button>
+                                <button class="btn btn-primary w-100 fw-bold py-2" onclick="SettingsManager.createNewCategory()">Tạo</button>
                             </div>
                         </div>
                     </div>
-                    <div class="card shadow-sm p-4 rounded-4 border-0">
-                        <h6 class="fw-bold text-secondary mb-4">Danh mục hiện tại</h6>
+                    
+                    <div class="card custom-card p-4">
+                        <h6 class="fw-bold text-white-50 mb-4 uppercase">Danh mục hiện tại</h6>
                         <div id="categoryList"></div>
                     </div>
                 </div>
 
                 <div id="section-wallet" class="d-none">
-                    <div class="card-custom mb-4 bg-white p-3 rounded-4 shadow-sm">
+                    <div class="card custom-card p-4 mb-4">
+                        <h6 class="fw-bold mb-3 text-info">Thêm ví mới</h6>
                         <form id="addWalletFormHorizontal">
                             <div class="row g-3 align-items-end">
                                 <div class="col-md-2 position-relative">
-                                    <label class="small fw-bold text-muted mb-1 d-block">Biểu tượng</label>
-                                    <div id="walletIconPickerBtn" class="icon-select-box cursor-pointer bg-light rounded-3 p-2 d-flex align-items-center justify-content-between">
+                                    <label class="small fw-bold text-white-50 mb-1 d-block">Biểu tượng</label>
+                                    <div id="walletIconPickerBtn" class="form-control cursor-pointer d-flex align-items-center justify-content-between">
                                         <i class="fa-solid fa-wallet" id="selectedWalletIconDisplay"></i>
                                         <i class="fa-solid fa-chevron-down small opacity-50"></i>
                                     </div>
-                                    <div id="walletIconDropdown" class="icon-dropdown-menu d-none shadow-lg border-0"><div class="icon-grid" id="walletIconGrid"></div></div>
+                                    <div id="walletIconDropdown" class="icon-dropdown-menu d-none shadow-lg rounded-4 position-absolute mt-1 p-2" style="z-index: 1000; width: 250px;">
+                                        <div class="icon-grid d-flex flex-wrap gap-2" id="walletIconGrid"></div>
+                                    </div>
                                 </div>
                                 <div class="col-md-1">
-                                    <label class="small fw-bold text-muted mb-1 d-block">Màu</label>
-                                    <input type="color" id="walletColor" class="form-control form-control-color border-0 bg-light w-100" value="#1FC06A">
+                                    <label class="small fw-bold text-white-50 mb-1 d-block">Màu</label>
+                                    <input type="color" id="walletColor" class="form-control form-control-color w-100 p-1" value="#00c6ff">
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="small fw-bold text-muted mb-1 d-block">Tên ví</label>
-                                    <input type="text" id="wNameHorizontal" class="form-control border-0 bg-light" placeholder="MoMo, Techcombank..." required>
+                                    <label class="small fw-bold text-white-50 mb-1 d-block">Tên ví</label>
+                                    <input type="text" id="wNameHorizontal" class="form-control" placeholder="MoMo, Techcombank..." required>
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="small fw-bold text-muted mb-1 d-block">Số dư</label>
-                                    <input type="text" id="wBalanceHorizontal" class="form-control border-0 bg-light" placeholder="0" required>
+                                    <label class="small fw-bold text-white-50 mb-1 d-block">Số dư</label>
+                                    <input type="text" id="wBalanceHorizontal" class="form-control text-info fw-bold" placeholder="0" required>
                                 </div>
                                 <div class="col-md-2">
-                                    <button type="submit" class="btn btn-primary w-100 fw-bold py-2 border-0 shadow-sm" style="background-color: #1FC06A;">Thêm ví</button>
+                                    <button type="submit" class="btn btn-primary w-100 fw-bold py-2">Thêm ví</button>
                                 </div>
                             </div>
                         </form>
                     </div>
-                    <div class="card shadow-sm p-4 rounded-4 border-0">
-                        <h6 class="fw-bold text-secondary mb-4">Ví của tôi</h6>
+                    
+                    <div class="card custom-card p-4">
+                        <h6 class="fw-bold text-white-50 mb-4 uppercase">Ví của tôi</h6>
                         <div id="walletList" class="d-flex flex-column gap-2"></div>
                     </div>
                 </div>
@@ -117,13 +161,14 @@
             </div>
         </div>
     </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="js/api.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/category-data.js"></script>
-    <script src="js/settings.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="js/api.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/category-data.js"></script>
+<script src="js/settings.js"></script>
 </body>
 </html>
