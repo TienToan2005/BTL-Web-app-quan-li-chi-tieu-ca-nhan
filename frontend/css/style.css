@@ -195,3 +195,19 @@ select option { background: #0a1f44; color: #fff; }
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.4); 
 }
+
+/* =========================================================
+   SỬA LỖI KHOẢNG TRẮNG Ở DROPDOWN CÓ PHÂN NHÓM (OPTGROUP) 
+   ========================================================= */
+select optgroup {
+    background: #0a1f44 !important; /* Trùng màu nền với nền app/option */
+    color: #00c6ff !important; /* Đổi màu chữ xanh dương cho tiêu đề nhóm cho nổi bật */
+    font-weight: 700;
+    font-style: normal;
+}
+
+/* Xử lý các option bị vô hiệu hóa (thường được js render làm vạch kẻ/tiêu đề) */
+select option[disabled] {
+    background: #0a1f44 !important;
+    color: rgba(255, 255, 255, 0.4) !important;
+}
