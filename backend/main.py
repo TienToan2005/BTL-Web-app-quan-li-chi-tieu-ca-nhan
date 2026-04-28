@@ -2,7 +2,7 @@ import uuid
 import os 
 import shutil
 import magic
-from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile, File ,Body,Query
+from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile, File, Body, Query, Header
 import pandas as pd
 from fastapi.responses import StreamingResponse
 import io
@@ -33,6 +33,8 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
 
 load_dotenv()
 
@@ -653,3 +655,81 @@ async def ai_chat(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"❌ Lỗi xử lý AI: {e}")
         return {"answer": "Mình đang bận tính toán ngân sách một chút, bạn hỏi lại sau nhé! 😅"}
+
+# --- 7. ADMIN DASHBOARD ---
+# 1.Kiểm tra Token & Quyền Admin
+def get_current_admin(authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập!")
+    
+    token = authorization.split(" ")[1]
+    payload = services.decode_token(token)
+    
+    if not payload:
+        raise HTTPException(status_code=401, detail="Token không hợp lệ hoặc đã hết hạn!")
+        
+    username = payload.get("sub")
+    user = db.query(models.User).filter(models.User.username == username).first()
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="Tài khoản không tồn tại!")
+        
+    if user.role != "ADMIN":
+        raise HTTPException(status_code=403, detail="Cảnh báo: Khu vực dành riêng cho Admin!")
+        
+    return user
+
+# 2. API: Lấy Thống Kê (Có bảo vệ)
+@app.get("/api/admin/stats", tags=["Admin"])
+def get_admin_stats(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    total_users = db.query(models.User).filter(models.User.role == "USER").count()
+    total_wallets = db.query(models.Wallet).count()
+    total_tx = db.query(models.Transaction).count()
+    
+    return {
+        "status": "success",
+        "data": {
+            "total_users": total_users,
+            "total_wallets": total_wallets,
+            "total_tx": total_tx
+        }
+    }
+
+# 3. API: Lấy Danh Sách User
+@app.get("/api/admin/users", tags=["Admin"])
+def get_all_users(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    users = db.query(models.User).order_by(models.User.created_at.desc()).all()
+    
+    user_list = []
+    for u in users:
+        user_list.append({
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "role": u.role,
+            "status": "BANNED" if u.deleted_at else "ACTIVE", # Nếu có ngày xóa thì là bị khóa
+            "created_at": u.created_at.strftime("%d/%m/%Y") if u.created_at else "N/A"
+        })
+        
+    return {"status": "success", "data": user_list}
+
+# 4. API: Khóa / Mở Khóa User (Tận dụng cột deleted_at)
+@app.put("/api/admin/users/{target_id}/toggle-ban", tags=["Admin"])
+def toggle_ban_user(target_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    if target_id == admin.id:
+        raise HTTPException(status_code=400, detail="Sếp không thể tự khóa chính mình được!")
+        
+    target_user = db.query(models.User).filter(models.User.id == target_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng!")
+        
+    # Toggle trạng thái Khóa / Mở khóa
+    if target_user.deleted_at:
+        target_user.deleted_at = None
+        msg = "Đã MỞ KHÓA tài khoản thành công!"
+    else:
+        target_user.deleted_at = datetime.now()
+        msg = "Đã KHÓA tài khoản thành công!"
+        
+    db.commit()
+    return {"status": "success", "message": msg}

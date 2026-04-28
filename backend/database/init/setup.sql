@@ -4,6 +4,7 @@ CREATE TABLE users (
     username VARCHAR(50) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) DEFAULT 'USER',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at DATETIME DEFAULT NULL,
@@ -11,6 +12,9 @@ CREATE TABLE users (
     updated_by VARCHAR(255) DEFAULT NULL,
     deleted_by VARCHAR(255) DEFAULT NULL
 );
+
+INSERT INTO users (username, email, password_hash, role) 
+VALUES ('admin2005', 'admin2005@gmail.com', '$2b$12$Y1W6GWKHxNJ7EcNHWzS5HeMDv1XRu21A0cEthJIS3iwo5DG9WRLyy', 'ADMIN');
 
 -- 2. Bảng Wallets
 CREATE TABLE wallets (
