@@ -137,7 +137,9 @@ class TransactionService:
             try:
                 db.commit()
                 db.refresh(wallet)
+                db.refresh(new_tx)
                 return {
+                    "id": new_tx.id,
                     "status": "success", 
                     "message": "Giao dịch thành công", 
                     "new_balance": float(wallet.balance)
