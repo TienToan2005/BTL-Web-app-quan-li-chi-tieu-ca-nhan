@@ -103,6 +103,22 @@ const Dashboard = {
                 API.getAIAdvice(userId, month, year)
             ]);
 
+            const isLocked = [wallets, report, aiData].some(res => {
+                if (res.status === 'rejected') {
+                    const errorMsg = String(res.reason).toLowerCase();
+                    // Kiểm tra các từ khóa báo lỗi từ Backend
+                    return errorMsg.includes('403') || errorMsg.includes('khóa') || res.reason?.status === 403;
+                }
+                return false;
+            });
+
+            if (isLocked) {
+                alert("Tài khoản của bạn đã bị vô hiệu hóa bởi Admin!");
+                localStorage.clear(); // Xóa sạch dữ liệu đăng nhập
+                window.location.href = "login.html"; // Đá văng ra ngoài đường
+                return;
+            }
+
             const walletData = wallets.status === 'fulfilled' ? wallets.value : [];
             const reportData = report.status === 'fulfilled' ? report.value : { period_income: 0, period_expenses: 0, period_change: 0, item_expenses: [], item_incomes: [] };
 

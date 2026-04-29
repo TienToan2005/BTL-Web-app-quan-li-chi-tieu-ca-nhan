@@ -1,3 +1,5 @@
+const BACKEND_URL = "https://silver-space-trout-g4xx79xvv4p52w6qg-8000.app.github.dev"; 
+
 const TransactionManager = {
     async init() {
         const user = Auth.getCurrentUser();
@@ -175,6 +177,17 @@ const TransactionManager = {
             const color = isTransfer ? "#0d6efd" : (t.category_color || "#64748b");
             const isExpense = (t.category_type === 'EXPENSE');
             
+            let noteHtml = `<div class="text-muted small text-truncate d-inline-block" style="max-width: 150px; vertical-align: middle;">${t.note || '---'}</div>`;
+
+            if (t.image_url) {
+                const fullImageUrl = t.image_url.startsWith('http') ? t.image_url : `${BACKEND_URL}${t.image_url}`;
+                noteHtml += `
+                    <button class="btn btn-sm text-primary p-0 ms-2" onclick="TransactionManager.viewReceipt('${fullImageUrl}')" title="Xem hóa đơn">
+                        <i class="fa-solid fa-paperclip fs-6"></i>
+                    </button>
+                `;
+            }
+
             return `
                 <tr class="align-middle border-bottom hover-row">
                     <td class="ps-4"><div class="text-secondary small">${Utils.formatDate(t.transaction_date)}</div></td>
@@ -187,7 +200,7 @@ const TransactionManager = {
                         </div>
                     </td>
                     <td><span class="badge bg-light text-dark border-0 small">${t.wallet_name}</span></td>
-                    <td><div class="text-muted small text-truncate" style="max-width: 180px;">${t.note || '---'}</div></td>
+                    <td><div class="d-flex align-items-center">${noteHtml}</div></td>
                     <td class="text-end fw-bold ${isTransfer ? 'text-primary' : (isExpense ? 'text-danger' : 'text-success')}">
                         ${isExpense ? '-' : '+'}${Utils.formatMoney(t.amount)}
                     </td>
@@ -214,6 +227,7 @@ const TransactionManager = {
         form.onsubmit = async (e) => {
             e.preventDefault();
             const btn = e.target.querySelector('button[type="submit"]');
+            const fileInput = document.getElementById('tReceipt');
 
             const data = {
                 user_id: userId,
@@ -228,22 +242,47 @@ const TransactionManager = {
 
             btn.disabled = true;
             try {
-                await API.createTransaction(data);
+                const response = await API.createTransaction(data);
+                
+                const newTxId = response.id || (response.data && response.data.id);
+
+                if (newTxId && fileInput && fileInput.files.length > 0) {
+                    const formData = new FormData();
+                    formData.append("file", fileInput.files[0]);
+
+                    const uploadRes = await fetch(`${BACKEND_URL}/upload-receipt/${newTxId}`, {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${localStorage.getItem('access_token')}`
+                        },
+                        body: formData
+                    });
+
+                    if (!uploadRes.ok) {
+                        console.error("Lỗi upload ảnh nhưng giao dịch vẫn được tạo.");
+                    }
+                }
+
                 bootstrap.Modal.getInstance(document.getElementById('addTransactionModal')).hide();
                 form.reset();
+                if (fileInput) fileInput.value = ""; 
+
                 Swal.fire('Xong!', 'Đã lưu giao dịch thành công!', 'success');
-                await this.loadTransactions();
-            } catch (e) { Swal.fire('Lỗi', e.message, 'error'); }
-            finally { btn.disabled = false; }
+                await this.loadTransactions(); // Load lại bảng để hiện cái ghim
+
+            } catch (e) { 
+                Swal.fire('Lỗi', e.message, 'error'); 
+            } finally { 
+                btn.disabled = false; 
+            }
         };
-    },  
+    },
 
     async handleExport(format) {
         const user = Auth.getCurrentUser();
         if (!user || !user.id) return;
 
         const cleanUserId = parseInt(user.id);
-        
         const exportUrl = `http://127.0.0.1:8000/reports/export?format=${format}&user_id=${cleanUserId}`;
 
         Swal.fire({
@@ -252,9 +291,7 @@ const TransactionManager = {
             icon: 'info',
             showConfirmButton: false,
             allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
+            didOpen: () => { Swal.showLoading(); }
         });
 
         try {
@@ -262,11 +299,23 @@ const TransactionManager = {
                 window.open(exportUrl, '_blank');
                 Swal.close();
             }, 800);
-            
         } catch (e) {
             console.error("Lỗi xuất báo cáo:", e);
             Swal.fire('Lỗi', 'Không thể kết nối đến máy chủ xuất báo cáo.', 'error');
         }
+    },
+
+    // ===================================
+    // TÍNH NĂNG XEM HÓA ĐƠN
+    // ===================================
+    viewReceipt(imageUrl) {
+        document.getElementById('receiptImage').src = imageUrl;
+        const modal = new bootstrap.Modal(document.getElementById('receiptModal'));
+        modal.show();
+    },
+
+    closeReceipt() {
+        document.getElementById('receiptImage').src = "";
     }
 };
 

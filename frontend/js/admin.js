@@ -4,6 +4,8 @@ const API_ADMIN_URL = `${BASE_URL}/api/admin`;
 const token = localStorage.getItem("access_token");
 const username = localStorage.getItem("username") || "Sếp";
 const role = localStorage.getItem("role");
+let barChartInstance = null;
+let doughnutChartInstance = null;
 
 const fetchOptions = {
     headers: {
@@ -12,9 +14,7 @@ const fetchOptions = {
     }
 };
 
-// ==========================================
-// 1. KIỂM TRA QUYỀN TRUY CẬP KHI MỞ TRANG
-// ==========================================
+// 1. KIỂM TRA QUYỀN
 document.addEventListener("DOMContentLoaded", () => {
     if (!token) {
         alert("Bạn chưa đăng nhập!");
@@ -28,35 +28,33 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     document.getElementById("admin-name").innerHTML = `<i class="fa-solid fa-user-tie me-2"></i>Xin chào, ${username}`;
-
     loadAdminStats();
     loadUsersList();
 });
 
-// ==========================================
-// 2. LOAD THỐNG KÊ (SỐ TỔNG QUAN)
-// ==========================================
+// 2. LOAD THỐNG KÊ TỔNG QUAN
 async function loadAdminStats() {
     try {
         const response = await fetch(`${API_ADMIN_URL}/stats`, fetchOptions);
         if (!response.ok) throw new Error("Lỗi tải thống kê");
         
         const res = await response.json();
-        const stats = res.data; // Bóc lớp vỏ "data" của Backend
+        const stats = res.data; 
         
-        // Cập nhật số lên giao diện HTML (Map đúng tên biến backend trả về)
         document.getElementById("total-users").innerText = stats.total_users || 0;
         document.getElementById("total-wallets").innerText = stats.total_wallets || 0;
-        document.getElementById("total-transactions").innerText = stats.total_tx || 0; // Đã đổi thành total_tx
+        document.getElementById("total-transactions").innerText = stats.total_tx || 0; 
+        
+        // Vẽ biểu đồ cột
+        renderBarChart(stats.total_users, stats.total_wallets, stats.total_tx);
+
     } catch (error) {
         console.error("Lỗi stats:", error);
         document.getElementById("total-users").innerText = "Lỗi";
     }
 }
 
-// ==========================================
-// 3. LOAD DANH SÁCH NGƯỜI DÙNG
-// ==========================================
+// 3. LOAD DANH SÁCH & VẼ BIỂU ĐỒ TRÒN
 async function loadUsersList() {
     const tbody = document.getElementById("user-list");
     try {
@@ -64,10 +62,16 @@ async function loadUsersList() {
         if (!response.ok) throw new Error("Lỗi tải danh sách người dùng");
         
         const res = await response.json();
-        const users = res.data; // Bóc lớp vỏ "data"
+        const users = res.data; 
+
+        // Vẽ biểu đồ tròn
+        const activeUsers = users.filter(u => u.status === 'ACTIVE').length;
+        const bannedUsers = users.filter(u => u.status === 'BANNED').length;
+        renderDoughnutChart(activeUsers, bannedUsers);
 
         tbody.innerHTML = ""; 
 
+        // ĐOẠN NÀY QUAN TRỌNG: Mọi biến user phải nằm TRONG vòng lặp
         users.forEach(user => {
             const tr = document.createElement("tr");
             tr.className = "hover:bg-gray-50 transition border-b";
@@ -76,23 +80,28 @@ async function loadUsersList() {
                 ? `<span class="px-2 inline-flex text-xs font-semibold rounded-full bg-purple-100 text-purple-800">ADMIN</span>`
                 : `<span class="px-2 inline-flex text-xs font-semibold rounded-full bg-blue-100 text-blue-800">USER</span>`;
                 
-            // Check theo đúng logic "ACTIVE" và "BANNED" của Backend
             const statusBadge = user.status === "ACTIVE" 
                 ? `<span class="px-2 inline-flex text-xs font-semibold rounded-full bg-green-100 text-green-800"><i class="fa-solid fa-check mr-1"></i> Hoạt động</span>`
                 : `<span class="px-2 inline-flex text-xs font-semibold rounded-full bg-red-100 text-red-800"><i class="fa-solid fa-lock mr-1"></i> Bị khóa</span>`;
 
-            // Đổi nút linh hoạt: Nếu đang khóa thì hiện nút "Mở khóa" và ngược lại
+            // Tự động sinh nút
             let actionBtn = `<span class="text-gray-400 text-sm">Vô hiệu</span>`;
             if (user.role !== "ADMIN") {
                 const btnText = user.status === "ACTIVE" ? "Khóa TK" : "Mở khóa";
                 const btnColor = user.status === "ACTIVE" ? "bg-red-500 hover:bg-red-600" : "bg-emerald-500 hover:bg-emerald-600";
-                actionBtn = `<button onclick="toggleBanUser(${user.id}, '${user.username}', '${user.status}')" class="${btnColor} text-white px-3 py-1 rounded text-xs font-bold transition shadow-sm">${btnText}</button>`;
+                
+                actionBtn = `
+                    <button onclick="viewUserDetails(${user.id})" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-bold transition shadow-sm mr-2"><i class="fa-solid fa-eye"></i> Xem</button>
+                    <button onclick="toggleBanUser(${user.id}, '${user.username}', '${user.status}')" class="${btnColor} text-white px-3 py-1 rounded text-xs font-bold transition shadow-sm">${btnText}</button>
+                `;
             }
 
+            // Gắn vào HTML
             tr.innerHTML = `
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#${user.id}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${user.username}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.email || "Chưa cập nhật"}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.created_at || "N/A"}</td>
                 <td class="px-6 py-4 whitespace-nowrap">${roleBadge}</td>
                 <td class="px-6 py-4 whitespace-nowrap">${statusBadge}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-center">${actionBtn}</td>
@@ -102,44 +111,30 @@ async function loadUsersList() {
 
     } catch (error) {
         console.error(error);
-        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">Lỗi khi tải danh sách người dùng!</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-4 text-center text-red-500">Lỗi khi tải danh sách người dùng!</td></tr>`;
     }
 }
 
-// ==========================================
-// 4. TÍNH NĂNG TÌM KIẾM TỨC THÌ
-// ==========================================
+// 4. TÌM KIẾM
 function searchTable() {
     let input = document.getElementById("searchInput").value.toLowerCase();
     let rows = document.querySelectorAll("#userTable tbody tr"); 
-
     rows.forEach(row => {
         let text = row.innerText.toLowerCase();
         row.style.display = text.includes(input) ? "" : "none";
     });
 }
 
-// ==========================================
-// 5. TÍNH NĂNG XUẤT EXCEL (Dùng SheetJS)
-// ==========================================
+// 5. XUẤT EXCEL
 function exportToExcel() {
     let table = document.getElementById("userTable");
     let wb = XLSX.utils.table_to_book(table, {sheet: "DanhSachUser"});
     XLSX.writeFile(wb, "QuanLyTaiKhoan_Spendee.xlsx");
     
-    // Bắn thông báo xịn xò sau khi xuất file
-    Swal.fire({
-        position: 'top-end',
-        icon: 'success',
-        title: 'Đã xuất file Excel thành công!',
-        showConfirmButton: false,
-        timer: 1500
-    });
+    Swal.fire({ position: 'top-end', icon: 'success', title: 'Đã xuất file Excel!', showConfirmButton: false, timer: 1500 });
 }
 
-// ==========================================
-// 6. TÍNH NĂNG KHÓA / MỞ KHÓA TÀI KHOẢN
-// ==========================================
+// 6. KHÓA / MỞ KHÓA
 function toggleBanUser(userId, username, currentStatus) {
     const isBanning = currentStatus === "ACTIVE";
     const actionText = isBanning ? "Khóa" : "Mở khóa";
@@ -147,7 +142,7 @@ function toggleBanUser(userId, username, currentStatus) {
 
     Swal.fire({
         title: `${actionText} tài khoản ${username}?`,
-        text: isBanning ? "Người dùng này sẽ bị đăng xuất và không thể truy cập!" : "Người dùng này sẽ được cấp lại quyền truy cập bình thường.",
+        text: isBanning ? "Người dùng này sẽ bị đăng xuất và không thể truy cập!" : "Tài khoản sẽ được mở lại bình thường.",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: confirmBtnColor,
@@ -157,36 +152,92 @@ function toggleBanUser(userId, username, currentStatus) {
     }).then(async (result) => {
         if (result.isConfirmed) {
             try {
-                // Gọi thẳng vào cái API PUT /toggle-ban của ông
-                const response = await fetch(`${API_ADMIN_URL}/users/${userId}/toggle-ban`, { 
-                    method: 'PUT', 
-                    ...fetchOptions 
-                });
+                const response = await fetch(`${API_ADMIN_URL}/users/${userId}/toggle-ban`, { method: 'PUT', ...fetchOptions });
                 const resData = await response.json();
-
                 if (response.ok) {
                     Swal.fire('Thành công!', resData.message, 'success');
-                    loadUsersList(); // Tải lại danh sách để cập nhật trạng thái
+                    loadUsersList(); 
                 } else {
                     Swal.fire('Thất bại!', resData.detail || 'Có lỗi xảy ra', 'error');
                 }
-            } catch(e) { 
-                console.error(e);
-                Swal.fire('Lỗi mạng!', 'Không thể kết nối đến máy chủ.', 'error');
-            }
+            } catch(e) { Swal.fire('Lỗi mạng!', 'Không thể kết nối đến máy chủ.', 'error'); }
         }
     });
 }
-// ==========================================
-// 7. ĐĂNG XUẤT
-// ==========================================
+
+// 7. VẼ BIỂU ĐỒ CỘT
+function renderBarChart(users, wallets, txs) {
+    const ctx = document.getElementById('barChart');
+    if (!ctx) return;
+    if (barChartInstance) barChartInstance.destroy(); 
+    barChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Người dùng', 'Số ví', 'Giao dịch'],
+            datasets: [{ label: 'Số lượng', data: [users, wallets, txs], backgroundColor: ['#3B82F6', '#10B981', '#A855F7'], borderRadius: 5, borderWidth: 0 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+    });
+}
+
+// 8. VẼ BIỂU ĐỒ TRÒN
+function renderDoughnutChart(activeCount, bannedCount) {
+    const ctx = document.getElementById('doughnutChart');
+    if (!ctx) return;
+    if (doughnutChartInstance) doughnutChartInstance.destroy();
+    doughnutChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Đang hoạt động', 'Bị khóa'],
+            datasets: [{ data: [activeCount, bannedCount], backgroundColor: ['#10B981', '#EF4444'], borderWidth: 2, hoverOffset: 4 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom' } } }
+    });
+}
+
+// 9. XEM CHI TIẾT USER (MODAL)
+async function viewUserDetails(userId) {
+    try {
+        const response = await fetch(`${API_ADMIN_URL}/users/${userId}/details`, fetchOptions);
+        if (!response.ok) throw new Error("Không thể tải thông tin");
+        
+        const res = await response.json();
+        const data = res.data;
+
+        document.getElementById('modal-username').innerText = data.username;
+        document.getElementById('modal-email').innerText = data.email || "Chưa cập nhật";
+        document.getElementById('modal-date').innerText = data.created_at;
+        document.getElementById('modal-balance').innerText = data.total_balance.toLocaleString('vi-VN') + " đ";
+        document.getElementById('modal-wallets').innerText = `(Từ ${data.total_wallets} ví)`;
+
+        const txList = document.getElementById('modal-tx-list');
+        txList.innerHTML = "";
+        
+        if (data.recent_transactions.length === 0) {
+            txList.innerHTML = `<tr><td class="py-3 text-center text-gray-500">Người dùng này chưa có giao dịch nào.</td></tr>`;
+        } else {
+            data.recent_transactions.forEach(tx => {
+                const color = tx.type === "INCOME" ? "text-green-600" : "text-red-600";
+                const icon = tx.type === "INCOME" ? "+" : "";
+                txList.innerHTML += `
+                    <tr>
+                        <td class="py-2 text-gray-500">${tx.date}</td>
+                        <td class="py-2 font-medium text-gray-800">${tx.note || "Không có ghi chú"}</td>
+                        <td class="py-2 font-bold text-right ${color}">${icon}${tx.amount.toLocaleString('vi-VN')} đ</td>
+                    </tr>
+                `;
+            });
+        }
+        document.getElementById('userDetailModal').classList.remove('hidden');
+    } catch (error) {
+        console.error(error);
+        Swal.fire('Lỗi!', 'Không thể lấy thông tin người dùng này.', 'error');
+    }
+}
+
+function closeModal() { document.getElementById('userDetailModal').classList.add('hidden'); }
+
 function logout() {
-    // Xóa sạch bộ nhớ
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("user_id");
-    localStorage.removeItem("username");
-    localStorage.removeItem("role");
-    
+    localStorage.clear();
     window.location.href = "login.html";
 }

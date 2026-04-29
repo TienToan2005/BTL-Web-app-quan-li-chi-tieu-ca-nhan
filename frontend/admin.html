@@ -5,21 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spendee | Quản trị Hệ thống</title>
 
-    <!-- Thư viện giao diện Tailwind CSS -->
+    <!-- Thư viện -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Thư viện Icon FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- Thư viện Popup SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    
-    <!-- Thư viện Xuất Excel SheetJS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style> body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; } </style>
 </head>
 <body class="bg-gray-50">
 
@@ -32,11 +24,9 @@
                 </div>
                 <div class="flex items-center gap-4">
                     <span id="admin-name" class="font-medium">Xin chào, Đang tải...</span>
-                    <!-- Nút về trang Chi tiêu -->
                     <a href="dashboard.html" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded text-sm font-bold transition">
                         <i class="fa-solid fa-house"></i> Trang Chi tiêu
                     </a>
-                    <!-- Nút Đăng xuất -->
                     <button onclick="logout()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm font-bold transition">
                         <i class="fa-solid fa-right-from-bracket"></i> Đăng xuất
                     </button>
@@ -50,51 +40,48 @@
         
         <h2 class="text-2xl font-bold text-gray-800 mb-6">Tổng quan hệ thống</h2>
         
-        <!-- Thẻ Thống kê (Stats Cards) -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-            <!-- Card User -->
+        <!-- Thẻ Số lượng -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div class="bg-white rounded-lg shadow border-l-4 border-blue-500 p-6 flex justify-between items-center">
-                <div>
-                    <p class="text-sm text-gray-500 font-semibold uppercase">NGƯỜI DÙNG</p>
-                    <p id="total-users" class="text-3xl font-bold text-gray-800 mt-1">0</p>
-                </div>
+                <div><p class="text-sm text-gray-500 font-semibold uppercase">NGƯỜI DÙNG</p><p id="total-users" class="text-3xl font-bold text-gray-800 mt-1">0</p></div>
                 <i class="fa-solid fa-users text-4xl text-gray-200"></i>
             </div>
-            <!-- Card Wallet -->
             <div class="bg-white rounded-lg shadow border-l-4 border-green-500 p-6 flex justify-between items-center">
-                <div>
-                    <p class="text-sm text-gray-500 font-semibold uppercase">TỔNG SỐ VÍ</p>
-                    <p id="total-wallets" class="text-3xl font-bold text-gray-800 mt-1">0</p>
-                </div>
+                <div><p class="text-sm text-gray-500 font-semibold uppercase">TỔNG SỐ VÍ</p><p id="total-wallets" class="text-3xl font-bold text-gray-800 mt-1">0</p></div>
                 <i class="fa-solid fa-wallet text-4xl text-gray-200"></i>
             </div>
-            <!-- Card Transaction -->
             <div class="bg-white rounded-lg shadow border-l-4 border-purple-500 p-6 flex justify-between items-center">
-                <div>
-                    <p class="text-sm text-gray-500 font-semibold uppercase">TỔNG GIAO DỊCH</p>
-                    <p id="total-transactions" class="text-3xl font-bold text-gray-800 mt-1">0</p>
-                </div>
+                <div><p class="text-sm text-gray-500 font-semibold uppercase">TỔNG GIAO DỊCH</p><p id="total-transactions" class="text-3xl font-bold text-gray-800 mt-1">0</p></div>
                 <i class="fa-solid fa-money-bill-transfer text-4xl text-gray-200"></i>
+            </div>
+        </div> 
+
+        <!-- Biểu đồ -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10 w-full">
+            <div class="bg-white rounded-xl shadow-md p-6 border-t-4 border-blue-500">
+                <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">Tương quan Dữ liệu</h3>
+                <div class="h-72 relative w-full"><canvas id="barChart"></canvas></div>
+            </div>
+            <div class="bg-white rounded-xl shadow-md p-6 border-t-4 border-emerald-500">
+                <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">Tỷ lệ Trạng thái Tài khoản</h3>
+                <div class="h-72 relative w-full flex justify-center"><canvas id="doughnutChart"></canvas></div>
             </div>
         </div>
 
         <h2 class="text-2xl font-bold text-gray-800 mb-6">Danh sách Tài khoản</h2>
 
-        <!-- Thanh công cụ (Tìm kiếm & Excel) -->
+        <!-- Thanh công cụ -->
         <div class="flex justify-between items-center mb-4">
             <div class="relative w-1/3">
-                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                    <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
-                </div>
+                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><i class="fa-solid fa-magnifying-glass text-gray-400"></i></div>
                 <input type="text" id="searchInput" onkeyup="searchTable()" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2.5 shadow-sm" placeholder="Tìm kiếm Email hoặc Tài khoản...">
             </div>
-            
             <button onclick="exportToExcel()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded shadow transition">
                 <i class="fa-solid fa-file-excel mr-2"></i> Xuất danh sách
             </button>
         </div>
 
-        <!-- Bảng danh sách User -->
+        <!-- Bảng User -->
         <div class="bg-white shadow rounded-lg overflow-hidden">
             <table id="userTable" class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-slate-800">
@@ -102,19 +89,41 @@
                         <th class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">ID</th>
                         <th class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Tài khoản</th>
                         <th class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Email</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Ngày ĐK</th>
                         <th class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Vai trò</th>
                         <th class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Trạng thái</th>
                         <th class="px-6 py-3 text-center text-xs font-bold text-white uppercase tracking-wider">Hành động</th>
                     </tr>
                 </thead>
                 <tbody id="user-list" class="bg-white divide-y divide-gray-200">
-                    <tr>
-                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">Đang tải dữ liệu...</td>
-                    </tr>
+                    <tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">Đang tải dữ liệu...</td></tr>
                 </tbody>
             </table>
         </div>
+    </div>
 
+    <!-- Popup Modal Chi tiết User -->
+    <div id="userDetailModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex justify-center items-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-11/12 md:w-2/3 lg:w-1/2 overflow-hidden">
+            <div class="bg-blue-800 px-6 py-4 flex justify-between items-center text-white">
+                <h3 class="text-lg font-bold"><i class="fa-solid fa-address-card mr-2"></i>Chi tiết Người dùng</h3>
+                <button onclick="closeModal()" class="text-white hover:text-red-400 text-2xl font-bold">&times;</button>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-2 gap-4 mb-6 bg-gray-50 p-4 rounded-lg border">
+                    <p class="text-sm text-gray-600">Tài khoản: <strong id="modal-username" class="text-black text-base">---</strong></p>
+                    <p class="text-sm text-gray-600">Ngày tạo: <strong id="modal-date" class="text-black text-base">---</strong></p>
+                    <p class="text-sm text-gray-600">Email: <strong id="modal-email" class="text-black text-base">---</strong></p>
+                    <p class="text-sm text-gray-600">Tổng tài sản: <strong id="modal-balance" class="text-green-600 text-lg">0 đ</strong> <span class="text-xs font-normal text-gray-500" id="modal-wallets">(0 ví)</span></p>
+                </div>
+                <h4 class="font-bold text-gray-700 mb-2 border-b pb-1"><i class="fa-solid fa-clock-rotate-left mr-2"></i>5 Giao dịch gần nhất</h4>
+                <div class="overflow-y-auto max-h-48">
+                    <table class="min-w-full text-sm">
+                        <tbody id="modal-tx-list" class="divide-y divide-gray-200"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="js/admin.js"></script>

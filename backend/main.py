@@ -35,6 +35,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
+from app.services import get_current_user
 
 load_dotenv()
 
@@ -119,6 +120,9 @@ def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
 def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.username == user.username).first()
     
+    if db_user.deleted_at is not None:
+        raise HTTPException(status_code=403, detail="Tài khoản này đã bị khóa. Vui lòng liên hệ Admin!")
+
     if not db_user or not services.pwd_context.verify(user.password, db_user.password_hash):
         raise BusinessException("Sai tài khoản hoặc mật khẩu", status_code=401)
     
@@ -370,7 +374,8 @@ def search_transactions(
             "category_type": cat_type,
             "category_icon": cat_icon,   
             "category_color": cat_color, 
-            "wallet_name": w_name       
+            "wallet_name": w_name,
+            "image_url": tx.image_url
         }
         formatted_data.append(data)
     
@@ -577,7 +582,11 @@ def get_monthly_report(user_id: int, month: int, year: int, db: Session = Depend
     }
    
 @app.post("/upload-receipt/{tx_id}")
-async def upload_receipt(tx_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_receipt(tx_id: int, file: UploadFile = File(...), db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    tx = db.query(models.Transaction).filter(models.Transaction.id == tx_id, models.Transaction.user_id == current_user.id).first()
+    if not tx:
+        raise HTTPException(status_code=403, detail="Không có quyền thao tác trên giao dịch này!")
+
     MAX_SIZE = 5 * 1024 * 1024
     content = await file.read()
     if len(content) > MAX_SIZE:
@@ -593,9 +602,9 @@ async def upload_receipt(tx_id: int, file: UploadFile = File(...), db: Session =
     with open(file_path, "wb") as f:
         f.write(content)
 
-    db.query(Transaction).filter(Transaction.id == tx_id).update({"image_url": f"/static/uploads/{file_name}"})
+    tx.image_url = f"/static/uploads/{file_name}"
     db.commit()
-    return {"status": "success", "url": f"/static/uploads/{file_name}"}
+    return {"status": "success", "url": tx.image_url}
 
 @app.get("/reports/ai-advice/{user_id}", tags=["Reports"])
 def get_smart_advice(user_id: int, month: int, year: int, db: Session = Depends(get_db)):
@@ -658,7 +667,6 @@ async def ai_chat(request: Request, db: Session = Depends(get_db)):
         return {"answer": "Mình đang bận tính toán ngân sách một chút, bạn hỏi lại sau nhé! 😅"}
 
 # --- 7. ADMIN DASHBOARD ---
-# 1.Kiểm tra Token & Quyền Admin
 def get_current_admin(authorization: str = Header(None), db: Session = Depends(get_db)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Vui lòng đăng nhập!")
@@ -677,10 +685,12 @@ def get_current_admin(authorization: str = Header(None), db: Session = Depends(g
         
     if user.role != "ADMIN":
         raise HTTPException(status_code=403, detail="Cảnh báo: Khu vực dành riêng cho Admin!")
-        
+
+    if user.deleted_at is not None: 
+        raise HTTPException(status_code=403, detail="Tài khoản của bạn đã bị khóa bởi Admin!")
+
     return user
 
-# 2. API: Lấy Thống Kê (Có bảo vệ)
 @app.get("/api/admin/stats", tags=["Admin"])
 def get_admin_stats(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     total_users = db.query(models.User).filter(models.User.role == "USER").count()
@@ -696,7 +706,6 @@ def get_admin_stats(db: Session = Depends(get_db), admin: models.User = Depends(
         }
     }
 
-# 3. API: Lấy Danh Sách User
 @app.get("/api/admin/users", tags=["Admin"])
 def get_all_users(db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     users = db.query(models.User).order_by(models.User.created_at.desc()).all()
@@ -714,7 +723,6 @@ def get_all_users(db: Session = Depends(get_db), admin: models.User = Depends(ge
         
     return {"status": "success", "data": user_list}
 
-# 4. API: Khóa / Mở Khóa User (Tận dụng cột deleted_at)
 @app.put("/api/admin/users/{target_id}/toggle-ban", tags=["Admin"])
 def toggle_ban_user(target_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
     if target_id == admin.id:
@@ -734,3 +742,42 @@ def toggle_ban_user(target_id: int, db: Session = Depends(get_db), admin: models
         
     db.commit()
     return {"status": "success", "message": msg}
+
+@app.get("/api/admin/users/{target_id}/details", tags=["Admin"])
+def get_user_details(target_id: int, db: Session = Depends(get_db), admin: models.User = Depends(get_current_admin)):
+    target_user = db.query(models.User).filter(models.User.id == target_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng!")
+        
+    # Lấy danh sách ví và tính tổng tiền
+    wallets = db.query(models.Wallet).filter(models.Wallet.user_id == target_id).all()
+    total_balance = sum([w.balance for w in wallets])
+    
+    # Lấy 5 giao dịch gần nhất
+    recent_txs = db.query(models.Transaction)\
+                   .filter(models.Transaction.user_id == target_id)\
+                   .order_by(models.Transaction.created_at.desc())\
+                   .limit(5).all()
+                   
+    tx_list = []
+    for tx in recent_txs:
+        tx_list.append({
+            "id": tx.id,
+            "amount": tx.amount,
+            "note": tx.note,
+            "type": "INCOME" if tx.amount > 0 else "EXPENSE",
+            "date": tx.created_at.strftime("%d/%m/%Y")
+        })
+
+    return {
+        "status": "success",
+        "data": {
+            "id": target_user.id,
+            "username": target_user.username,
+            "email": target_user.email,
+            "created_at": target_user.created_at.strftime("%d/%m/%Y") if target_user.created_at else "N/A",
+            "total_wallets": len(wallets),
+            "total_balance": total_balance,
+            "recent_transactions": tx_list
+        }
+    }
