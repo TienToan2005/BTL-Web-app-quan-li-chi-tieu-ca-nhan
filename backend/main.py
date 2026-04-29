@@ -132,7 +132,8 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
         "refresh_token": rt, 
         "token_type": "bearer",
         "user_id": db_user.id,     
-        "username": db_user.username 
+        "username": db_user.username,
+        "role": db_user.role
     }
 
 @app.post("/auth/register", tags=["Auth"])

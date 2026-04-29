@@ -11,7 +11,11 @@ const Dashboard = {
         const username = localStorage.getItem('username');
         const userDisplay = document.getElementById('userDisplay');
         if (userDisplay) userDisplay.innerText = username || "Username";
-
+        const userRole = localStorage.getItem('role');
+        if (userRole === 'ADMIN') {
+            const adminMenu = document.getElementById('admin-menu-item');
+            if (adminMenu) adminMenu.style.display = 'block';
+        }
         const userMsgInput = document.getElementById('userMsg');
         if (userMsgInput) {
             userMsgInput.addEventListener('keypress', (e) => {
@@ -35,7 +39,7 @@ const Dashboard = {
     async askAI() {
         const input = document.getElementById('userMsg');
         const content = document.getElementById('chatContent');
-        const message = input.value.trim();
+        const message = input.value.trim().replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
         if (!message) return;
 

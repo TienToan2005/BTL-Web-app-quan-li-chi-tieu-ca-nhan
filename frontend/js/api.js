@@ -1,5 +1,5 @@
 //const BASE_URL = 'http://127.0.0.1:8000';
-const BASE_URL = 'https://silver-space-trout-g4xx79xvv4p52w6qg-8000.app.github.dev/';
+const BASE_URL = 'https://silver-space-trout-g4xx79xvv4p52w6qg-8000.app.github.dev';
 
 const API = {
     async fetchWithAuth(endpoint, options = {}) {
@@ -57,6 +57,7 @@ const API = {
                 localStorage.setItem('access_token', data.access_token);
                 localStorage.setItem('refresh_token', data.refresh_token);
                 localStorage.setItem('username', username);
+                localStorage.setItem('role', data.role);
                 
                 const uid = data.user_id || data.id; 
                 if (uid) {

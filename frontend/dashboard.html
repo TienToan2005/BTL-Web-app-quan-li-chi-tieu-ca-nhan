@@ -30,7 +30,16 @@
                 </div>
             </div>
             <ul class="dropdown-menu dropdown-menu-dark shadow border-0 mt-2 w-100" style="background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);">
-                <li><a class="dropdown-item py-2 text-danger fw-bold" href="#" onclick="Auth.logout()"><i class="fa-solid fa-right-from-bracket me-2"></i> Đăng xuất</a></li>
+                <li id="admin-menu-item" style="display: none;">
+                    <a class="dropdown-item py-2 text-warning fw-bold" onclick="window.location.href='admin.html'" style="cursor: pointer;">
+                        <i class="fa-solid fa-gear me-2"></i> Quản trị hệ thống
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item py-2 text-danger fw-bold" href="#" onclick="Auth.logout()">
+                        <i class="fa-solid fa-right-from-bracket me-2"></i> Đăng xuất
+                    </a>
+                </li>
             </ul>
         </div>
     </div>
