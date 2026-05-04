@@ -1,7 +1,6 @@
 import uuid
 import os 
 import shutil
-import magic
 from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile, File, Body, Query, Header
 import pandas as pd
 from fastapi.responses import StreamingResponse
@@ -120,10 +119,13 @@ def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
 def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.username == user.username).first()
     
-    if db_user.deleted_at is not None:
-        raise HTTPException(status_code=403, detail="Tài khoản này đã bị khóa. Vui lòng liên hệ Admin!")
+    if not db_user:
+        raise BusinessException("Sai tài khoản hoặc mật khẩu", status_code=401)
 
-    if not db_user or not services.pwd_context.verify(user.password, db_user.password_hash):
+    if db_user.deleted_at is not None:
+        raise HTTPException(status_code=400, detail="Tài khoản này đã bị khóa. Vui lòng liên hệ Admin!")
+
+    if not services.pwd_context.verify(user.password, db_user.password_hash):
         raise BusinessException("Sai tài khoản hoặc mật khẩu", status_code=401)
     
     at, rt = services.create_tokens(db_user.username)
@@ -592,8 +594,7 @@ async def upload_receipt(tx_id: int, file: UploadFile = File(...), db: Session =
     if len(content) > MAX_SIZE:
         raise BusinessException("File quá lớn! Giới hạn 5MB")
 
-    mime = magic.from_buffer(content, mime=True)
-    if not mime.startswith("image/"):
+    if not file.content_type.startswith("image/"):
         raise BusinessException("Định dạng file không được hỗ trợ")
 
     file_name = f"{uuid.uuid4()}.jpg"

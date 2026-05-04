@@ -1,0 +1,1 @@
+export default ({ ["styles"] : ({ ["global"] : ({ [":root"] : ({  }), ["body"] : ({ ["fontFamily"] : "'Poppins', sans-serif", ["--default-font-family"] : "'Poppins', sans-serif", ["background"] : "linear-gradient(135deg, #0a1f44, #0072ff)", ["color"] : "#fff", ["minHeight"] : "100vh", ["margin"] : "0" }) }) }) })

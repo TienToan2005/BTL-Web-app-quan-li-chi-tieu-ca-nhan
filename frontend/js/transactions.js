@@ -1,4 +1,4 @@
-const BACKEND_URL = "https://silver-space-trout-g4xx79xvv4p52w6qg-8000.app.github.dev"; 
+const BACKEND_URL = "http://127.0.0.1:8000";
 
 const TransactionManager = {
     async init() {

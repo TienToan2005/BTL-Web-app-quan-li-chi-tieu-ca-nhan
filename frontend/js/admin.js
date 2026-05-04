@@ -1,4 +1,4 @@
-const BASE_URL = "https://silver-space-trout-g4xx79xvv4p52w6qg-8000.app.github.dev";
+const BASE_URL = 'http://127.0.0.1:8000';
 const API_ADMIN_URL = `${BASE_URL}/api/admin`;
 
 const token = localStorage.getItem("access_token");
