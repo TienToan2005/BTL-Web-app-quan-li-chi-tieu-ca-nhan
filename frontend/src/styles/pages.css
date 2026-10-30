@@ -1,0 +1,22 @@
+/* Bổ sung theo trang và các lớp tiện ích còn thiếu */
+.glow-income .recharts-area-curve { filter: drop-shadow(0 0 7px rgba(52, 211, 153, .8)); }
+.glow-expense .recharts-area-curve { filter: drop-shadow(0 0 7px rgba(251, 113, 133, .8)); }
+.recharts-wrapper, .recharts-surface { outline: none; }
+.recharts-cartesian-axis-tick text { font-family: var(--font); }
+
+.show-m { display: none !important; }
+@media (max-width: 900px) { .hide-m { display: none !important; } .show-m { display: flex !important; } }
+
+.g-form { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); align-items: start; }
+@media (max-width: 1000px) { .g-form { grid-template-columns: minmax(0, 1fr); } }
+
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th { text-align: left; padding: 12px 20px; font-size: 12px; font-weight: 500; color: var(--faint); border-bottom: 1px solid var(--line); white-space: nowrap; }
+.table td { padding: 14px 20px; border-top: 1px solid var(--line); vertical-align: middle; }
+.table tbody tr { transition: background-color .15s; }
+.table tbody tr:hover { background: rgba(255, 255, 255, .035); }
+
+/* Thẻ nổi lên khi rê chuột trên màn hình cảm ứng thì không nghiêng */
+@media (hover: none) { .card { transform: none !important; } }
+
+.bcard__amt { font-family: var(--display); font-size: clamp(17px, 1.7vw, 22px); font-weight: 600; letter-spacing: -.03em; white-space: nowrap; }

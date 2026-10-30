@@ -9,3 +9,37 @@ services:
       - "3306:3306"
     volumes:
       - ./backend/database/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    container_name: backend_chitieu
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      # Ghi đè DATABASE_URL trong .env: trong Docker phải trỏ tới host "db"
+      DATABASE_URL: mysql+pymysql://root:root@db:3306/quanlychitieu
+    ports:
+      - "8010:8000"
+    volumes:
+      # Giữ ảnh hóa đơn đã upload khi build lại container
+      - ./backend/static:/app/static
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://127.0.0.1:8010
+    container_name: frontend_chitieu
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"

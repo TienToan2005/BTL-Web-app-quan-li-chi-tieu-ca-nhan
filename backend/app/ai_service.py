@@ -11,6 +11,8 @@ class AIService:
             print("❌ LỖI: Thiếu GROQ_API_KEY trong file .env")
             return
             
+        # Groq đã gỡ llama-3.1-8b-instant; có thể đổi model qua biến GROQ_MODEL trong .env
+        self.model = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
         self.client = Groq(api_key=self.api_key)
         print("✅ Groq AI Service (Llama 3) đã sẵn sàng!")
 
@@ -27,10 +29,10 @@ class AIService:
 
         try:
             completion = self.client.chat.completions.create(
-                model="llama-3.1-8b-instant",
+                model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
-                max_tokens=150,
+                max_tokens=800,
             )
             return completion.choices[0].message.content
         except Exception as e:
@@ -50,13 +52,13 @@ class AIService:
 
         try:
             completion = self.client.chat.completions.create(
-                model="llama-3.1-8b-instant",
+                model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message}
                 ],
                 temperature=0.8,
-                max_tokens=250,
+                max_tokens=800,
             )
             return completion.choices[0].message.content
         except Exception as e:
