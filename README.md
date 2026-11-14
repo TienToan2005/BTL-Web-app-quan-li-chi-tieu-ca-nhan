@@ -7,7 +7,7 @@ Cách chạy dự án:
         Bước 2: Dán nội dung này vào file .env vừa tạo:
         Đoạn mã
             DATABASE_URL=sqlite:///./sql_app.db
-            SECRET_KEY=nhom15_sieucap_vjp
+            SECRET_KEY=<chuoi-ngau-nhien-dai-it-nhat-32-ky-tu>
             ALGORITHM=HS256
             ACCESS_TOKEN_EXPIRE_MINUTES=30
             # Chìa khóa AI 
